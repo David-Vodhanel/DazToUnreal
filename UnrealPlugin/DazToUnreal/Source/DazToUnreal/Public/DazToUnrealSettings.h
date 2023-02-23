@@ -20,6 +20,7 @@ public:
 		Port = 32345;
 		ImportDirectory.Path = TEXT("/Game/DazToUnreal");
 		AnimationImportDirectory.Path = TEXT("/Game/DazToUnreal/Animation");
+		DeformerImportDirectory.Path = TEXT("/Game/DazToUnreal/MLDeformer");
 		PoseImportDirectory.Path = TEXT("/Game/DazToUnreal/Pose");
 		ShowFBXImportDialog = false;
 		FrameZeroIsReferencePose = false;
@@ -111,6 +112,10 @@ public:
 	/** Directory animations will be imported to */
 	UPROPERTY(config, EditAnywhere, Category = PluginSettings, meta = (RelativeToGameContentDir, LongPackageName))
 		FDirectoryPath AnimationImportDirectory;
+
+	/** Directory animations will be imported to */
+	UPROPERTY(config, EditAnywhere, Category = PluginSettings, meta = (RelativeToGameContentDir, LongPackageName))
+		FDirectoryPath DeformerImportDirectory;
 
 	/** Directory PoseAssets will be imported to */
 	UPROPERTY(config, EditAnywhere, Category = PluginSettings, meta = (RelativeToGameContentDir, LongPackageName))

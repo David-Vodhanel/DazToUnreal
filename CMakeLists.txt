@@ -28,6 +28,8 @@ endif(APPLE)
 project("DzBridge-Unreal")
 set(FBX_SDK_DIR "" CACHE PATH "Path to FBX SDK" )
 set(OPENSUBDIV_DIR "" CACHE PATH "Path to Opensubdiv folder" )
+set(ALEMBIC_DIR "" CACHE PATH "Path to Alembic folder" )
+set(IMATH_DIR "" CACHE PATH "Path to Imath folder" )
 #set(DZBRIDGE_DIR "" CACHE PATH "Path to DzBridge folder" )
 set(USE_DZBRIDGE_SUBMODULE "ON")
 set(USE_DZBRIDGE_STATIC "ON")
@@ -228,6 +230,36 @@ if(WIN32)
 	set(OPENSUBDIV_LIB "${OPENSUBDIV_DIR}/build/lib/Release/osdCPU.lib" CACHE FILEPATH "Path to Opensubdiv CPU static library (osdCPU.lib)" )
 elseif(APPLE)
 	set(OPENSUBDIV_LIB "${OPENSUBDIV_DIR}/build/lib/Release/libosdCPU.a" CACHE FILEPATH "Path to Opensubdiv CPU static library (libosdCPU.a)" )
+endif()
+
+############################
+# Alembic SETTINGS
+############################
+#set(ALEMBIC_DIR "" CACHE PATH "Path to Alembic folder" )
+if(NOT ALEMBIC_DIR)
+	message(FATAL_ERROR "Missing path to Alembic folder")
+	return()
+endif()
+set(ALEMBIC_INCLUDE "${ALEMBIC_DIR}/include" CACHE PATH "Path to Alembic include folder" )
+if(WIN32)
+	set(ALEMBIC_LIB "${ALEMBIC_DIR}/lib/Alembic.lib" CACHE FILEPATH "Path to Alembic CPU static library (Alembic.lib)" )
+elseif(APPLE)
+	set(ALEMBIC_LIB "${ALEMBIC_DIR}/lib/Alembic.a" CACHE FILEPATH "Path to Alembic CPU static library (Alembic.a)" )
+endif()
+
+############################
+# Imath SETTINGS
+############################
+set(IMATH_DIR "" CACHE PATH "Path to Imath folder" )
+if(NOT IMATH_DIR)
+	message(FATAL_ERROR "Missing path to Imath folder")
+	return()
+endif()
+set(IMATH_INCLUDE "${IMATH_DIR}/include/Imath" CACHE PATH "Path to Imath include folder" )
+if(WIN32)
+	set(IMATH_LIB "${IMATH_DIR}/lib/Imath-3_1_d.lib" CACHE FILEPATH "Path to Imath CPU static library (Imath-3_1_d.lib)" )
+elseif(APPLE)
+	set(IMATH_LIB "${IMATH_DIR}/lib/3_1_d.a" CACHE FILEPATH "Path to Imath CPU static library (Imath-3_1_d.a)" )
 endif()
 
 ############################

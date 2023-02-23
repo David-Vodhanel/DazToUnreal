@@ -51,7 +51,32 @@
 		{
 			"Name": "IKRig",
 			"Enabled": true,
-			"Optional":  true
+			"Optional": true
+		},
+		{
+			"Name": "AlembicImporter",
+			"Enabled": true,
+			"Optional": true
+		},
+		{
+			"Name": "MLDeformerFramework",
+			"Enabled": true,
+			"Optional": true
+		},
+		{
+			"Name": "NNI",
+			"Enabled": true,
+			"Optional": true
+		},
+		{
+			"Name": "NeuralMorphModel",
+			"Enabled": true,
+			"Optional": true
+		},
+		{
+			"Name": "VertexDeltaModel",
+			"Enabled": true,
+			"Optional": true
 		}
 	]
 }

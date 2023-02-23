@@ -55,6 +55,8 @@ target_include_directories(${DZ_PLUGIN_TGT_NAME}
 	PUBLIC
 	${FBX_SDK_INCLUDE}
 	${OPENSUBDIV_INCLUDE}
+	${ALEMBIC_INCLUDE}
+	${IMATH_INCLUDE}
 )
 
 target_link_libraries(${DZ_PLUGIN_TGT_NAME}
@@ -67,6 +69,8 @@ target_link_libraries(${DZ_PLUGIN_TGT_NAME}
 	${DZSDK_QT_NETWORK_TARGET}
 	${FBX_IMPORT_LIBS}
 	${OPENSUBDIV_LIB}
+	${ALEMBIC_LIB}
+	${IMATH_LIB}
 )
 
 

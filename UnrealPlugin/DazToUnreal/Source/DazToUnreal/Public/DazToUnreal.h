@@ -23,7 +23,8 @@ enum DazAssetType
 	StaticMesh,
 	Animation,
 	Environment,
-	Pose
+	Pose,
+	MLDeformer
 };
 
 struct TextureLookupInfo
@@ -63,7 +64,7 @@ public:
 	void InstallMaterialAssetsToProject();
 	
 	/** Function to start the import process*/
-	UObject* ImportFromDaz(TSharedPtr<FJsonObject> JsonObject);
+	UObject* ImportFromDaz(TSharedPtr<FJsonObject> JsonObject, const FString& FileName);
 
 private:
 	

@@ -189,7 +189,7 @@ FSoftObjectPath FDazToUnrealMaterials::GetBaseMaterial(FString MaterialName, TAr
 	return BaseMaterialAssetPath;
 }
 
-UMaterialInstanceConstant* FDazToUnrealMaterials::CreateMaterial(const FString CharacterMaterialFolder, const FString CharacterTexturesFolder, FString& MaterialName, TMap<FString, TArray<FDUFTextureProperty>> MaterialProperties, const DazCharacterType CharacterType, UMaterialInstanceConstant* ParentMaterial, USubsurfaceProfile* SubsurfaceProfile)
+UMaterialInstanceConstant* FDazToUnrealMaterials::CreateMaterial(const FString CharacterMaterialFolder, const FString CharacterTexturesFolder, FString& MaterialName, TMap<FString, TArray<FDUFTextureProperty>> MaterialProperties, const DazCharacterType CharacterType, UMaterialInterface* ParentMaterial, USubsurfaceProfile* SubsurfaceProfile)
 {
 	const UDazToUnrealSettings* CachedSettings = GetDefault<UDazToUnrealSettings>();
 
@@ -230,7 +230,6 @@ UMaterialInstanceConstant* FDazToUnrealMaterials::CreateMaterial(const FString C
 	{
 		if (MaterialName.Contains(Seperator + TEXT("EyeMoisture")) || MaterialName.EndsWith(Seperator + TEXT("EyeReflection")))
 		{
-			//BaseMaterialAssetPath = CachedSettings->BaseEyeMoistureMaterial;
 			SetMaterialProperty(MaterialName, TEXT("Metallic Weight"), TEXT("Double"), TEXT("1"), MaterialProperties);
 			SetMaterialProperty(MaterialName, TEXT("Opacity Strength"), TEXT("Double"), FString::SanitizeFloat(CachedSettings->DefaultEyeMoistureOpacity), MaterialProperties);
 			SetMaterialProperty(MaterialName, TEXT("Diffuse Color"), TEXT("Color"), TEXT("#bababa"), MaterialProperties);
@@ -238,14 +237,12 @@ UMaterialInstanceConstant* FDazToUnrealMaterials::CreateMaterial(const FString C
 		}
 		else if (MaterialName.EndsWith(Seperator + TEXT("Tear")) || MaterialName.EndsWith(Seperator + TEXT("Tears")))
 		{
-			//BaseMaterialAssetPath = CachedSettings->BaseCorneaMaterial;
 			SetMaterialProperty(MaterialName, TEXT("Metallic Weight"), TEXT("Double"), TEXT("1"), MaterialProperties);
 			SetMaterialProperty(MaterialName, TEXT("Opacity Strength"), TEXT("Double"), FString::SanitizeFloat(CachedSettings->DefaultEyeMoistureOpacity), MaterialProperties);
 			SetMaterialProperty(MaterialName, TEXT("Index of Refraction"), TEXT("Double"), TEXT("1.0"), MaterialProperties);
 		}
 		else
 		{
-			//BaseMaterialAssetPath = CachedSettings->BaseAlphaMaterial;
 			SetMaterialProperty(MaterialName, TEXT("Metallic Weight"), TEXT("Double"), TEXT("0"), MaterialProperties);
 			SetMaterialProperty(MaterialName, TEXT("Glossy Layered Weight"), TEXT("Double"), TEXT("0"), MaterialProperties);
 		}
@@ -253,7 +250,6 @@ UMaterialInstanceConstant* FDazToUnrealMaterials::CreateMaterial(const FString C
 	else if (AssetType == TEXT("Follower/Attachment/Lower-Body/Hip/Front") &&
 		MaterialName.Contains(Seperator + TEXT("Genitalia")))
 	{
-		//BaseMaterialAssetPath = CachedSettings->BaseSkinMaterial;
 		SetMaterialProperty(MaterialName, TEXT("Subsurface Alpha Texture"), TEXT("Texture"), FDazToUnrealTextures::GetSubSurfaceAlphaTexture(CharacterType, MaterialName), MaterialProperties);
 	}
 	else if (AssetType == TEXT("Actor/Character"))
@@ -272,97 +268,48 @@ UMaterialInstanceConstant* FDazToUnrealMaterials::CreateMaterial(const FString C
 			MaterialName.EndsWith(Seperator + TEXT("Toenails")) ||
 			MaterialName.EndsWith(Seperator + TEXT("Genitalia")))
 		{
-			//BaseMaterialAssetPath = CachedSettings->BaseSkinMaterial;
 			SetMaterialProperty(MaterialName, TEXT("Diffuse Subsurface Color Weight"), TEXT("Double"), FString::SanitizeFloat(CachedSettings->DefaultSkinDiffuseSubsurfaceColorWeight), MaterialProperties);
 			SetMaterialProperty(MaterialName, TEXT("Subsurface Alpha Texture"), TEXT("Texture"), FDazToUnrealTextures::GetSubSurfaceAlphaTexture(CharacterType, MaterialName), MaterialProperties);
 		}
 		else if (MaterialName.Contains(Seperator + TEXT("EyeMoisture")))
 		{
-			//BaseMaterialAssetPath = CachedSettings->BaseEyeMoistureMaterial;
 			SetMaterialProperty(MaterialName, TEXT("Metallic Weight"), TEXT("Double"), TEXT("1"), MaterialProperties);
 			SetMaterialProperty(MaterialName, TEXT("Opacity Strength"), TEXT("Double"), FString::SanitizeFloat(CachedSettings->DefaultEyeMoistureOpacity), MaterialProperties);
 			SetMaterialProperty(MaterialName, TEXT("Index of Refraction"), TEXT("Double"), TEXT("1.0"), MaterialProperties);
 		}
 		else if (MaterialName.EndsWith(Seperator + TEXT("EyeReflection")) || MaterialName.EndsWith(Seperator + TEXT("Tear")) || MaterialName.EndsWith(Seperator + TEXT("Tears")))
 		{
-			//BaseMaterialAssetPath = CachedSettings->BaseEyeMoistureMaterial;
 			SetMaterialProperty(MaterialName, TEXT("Metallic Weight"), TEXT("Double"), TEXT("1"), MaterialProperties);
 			SetMaterialProperty(MaterialName, TEXT("Opacity Strength"), TEXT("Double"), FString::SanitizeFloat(CachedSettings->DefaultEyeMoistureOpacity), MaterialProperties);
 			SetMaterialProperty(MaterialName, TEXT("Index of Refraction"), TEXT("Double"), TEXT("1.0"), MaterialProperties);
 		}
 		else if (MaterialName.EndsWith(Seperator + TEXT("EyeLashes")) || MaterialName.EndsWith(Seperator + TEXT("Eyelashes")))
 		{
-			//BaseMaterialAssetPath = CachedSettings->BaseAlphaMaterial;
 			SetMaterialProperty(MaterialName, TEXT("Metallic Weight"), TEXT("Double"), TEXT("0"), MaterialProperties);
 			SetMaterialProperty(MaterialName, TEXT("Glossy Layered Weight"), TEXT("Double"), TEXT("0"), MaterialProperties);
 			SetMaterialProperty(MaterialName, TEXT("Index of Refraction"), TEXT("Double"), TEXT("1.0"), MaterialProperties);
 		}
 		else if (MaterialName.EndsWith(Seperator + TEXT("cornea")))
 		{
-			//BaseMaterialAssetPath = CachedSettings->BaseCorneaMaterial;
 			SetMaterialProperty(MaterialName, TEXT("Metallic Weight"), TEXT("Double"), TEXT("1"), MaterialProperties);
 			SetMaterialProperty(MaterialName, TEXT("Opacity Strength"), TEXT("Double"), FString::SanitizeFloat(CachedSettings->DefaultEyeMoistureOpacity), MaterialProperties);
 			SetMaterialProperty(MaterialName, TEXT("Index of Refraction"), TEXT("Double"), TEXT("1.0"), MaterialProperties);
 		}
-		else if (MaterialName.EndsWith(Seperator + TEXT("sclera")))
-		{
-			//BaseMaterialAssetPath = CachedSettings->BaseMaterial;
-		}
 		else if (MaterialName.EndsWith(Seperator + TEXT("irises")))
 		{
 			SetMaterialProperty(MaterialName, TEXT("Pixel Depth Offset"), TEXT("Double"), TEXT("0.1"), MaterialProperties);
-			//BaseMaterialAssetPath = CachedSettings->BaseMaterial;
 		}
 		else if (MaterialName.EndsWith(Seperator + TEXT("pupils")))
 		{
 			SetMaterialProperty(MaterialName, TEXT("Pixel Depth Offset"), TEXT("Double"), TEXT("0.1"), MaterialProperties);
-			//BaseMaterialAssetPath = CachedSettings->BaseMaterial;
 		}
-		else
-		{
-			//BaseMaterialAssetPath = CachedSettings->BaseMaterial;
-			if (MaterialProperties.Contains(MaterialName))
-			{
-				TArray<FDUFTextureProperty> Properties = MaterialProperties[MaterialName];
-				for (FDUFTextureProperty Property : Properties)
-				{
-					if (Property.Name == TEXT("Cutout Opacity Texture"))
-					{
-						//BaseMaterialAssetPath = CachedSettings->BaseAlphaMaterial;
-					}
-				}
-			}
-		}
+
 	}
 	else if (MaterialName.Contains(Seperator + TEXT("EyeMoisture")))
 	{
-		//BaseMaterialAssetPath = CachedSettings->BaseEyeMoistureMaterial;
 		SetMaterialProperty(MaterialName, TEXT("Metallic Weight"), TEXT("Double"), TEXT("1"), MaterialProperties);
 		SetMaterialProperty(MaterialName, TEXT("Opacity Strength"), TEXT("Double"), FString::SanitizeFloat(CachedSettings->DefaultEyeMoistureOpacity), MaterialProperties);
 		SetMaterialProperty(MaterialName, TEXT("Index of Refraction"), TEXT("Double"), TEXT("1.0"), MaterialProperties);
-	}
-	else
-	{
-		//BaseMaterialAssetPath = CachedSettings->BaseMaterial;
-		if (MaterialProperties.Contains(MaterialName))
-		{
-			TArray<FDUFTextureProperty> Properties = MaterialProperties[MaterialName];
-			for (FDUFTextureProperty Property : Properties)
-			{
-				if (Property.Name == TEXT("Cutout Opacity Texture"))
-				{
-					//BaseMaterialAssetPath = CachedSettings->BaseAlphaMaterial;
-				}
-				if (Property.Name == TEXT("Opacity Strength") && Property.Value != TEXT("1"))
-				{
-					//BaseMaterialAssetPath = CachedSettings->BaseAlphaMaterial;
-				}
-			}
-		}
-	}
-	if (MaterialName.EndsWith(Seperator + TEXT("NoDraw")))
-	{
-		//BaseMaterialAssetPath = CachedSettings->NoDrawMaterial;
 	}
 
 	CorrectDazShaders(MaterialName, MaterialProperties);
@@ -386,9 +333,13 @@ UMaterialInstanceConstant* FDazToUnrealMaterials::CreateMaterial(const FString C
 		Package->SetDirtyFlag(true);
 
 		UObject* BaseMaterial = BaseMaterialAssetPath.TryLoad();
-		if (ParentMaterial && ParentMaterial->Parent == BaseMaterial)
+		if (ParentMaterial && ParentMaterial->IsA(UMaterialInstanceConstant::StaticClass()) && Cast<UMaterialInstanceConstant>(ParentMaterial)->Parent == BaseMaterial)
 		{
-			UnrealMaterialConstant->SetParentEditorOnly((UMaterial*)ParentMaterial);
+			UnrealMaterialConstant->SetParentEditorOnly(ParentMaterial);
+		}
+		else if (ParentMaterial && ParentMaterial->IsA(UMaterial::StaticClass()))
+		{
+			UnrealMaterialConstant->SetParentEditorOnly(ParentMaterial);
 		}
 		else
 		{

@@ -30,7 +30,7 @@ struct FDazMaterialMappingInfo
 
 	/** Type of the material */
 	UPROPERTY(EditAnywhere, Category = "Material Mapping")
-	EDazMaterialType MaterialType;
+	EDazMaterialType MaterialType = EDazMaterialType::Base;
 
 	/** Path to the material to use */
 	UPROPERTY(EditAnywhere, Category = "Material Mapping", meta = (AllowedClasses = "Material"))

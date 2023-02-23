@@ -33,7 +33,7 @@ UObject* UDazToUnrealFactory::FactoryCreateFile(UClass* InClass, UObject* InPare
 		  TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject);
 		  if (FJsonSerializer::Deserialize(JsonReader, JsonObject) && JsonObject.IsValid())
 		  {
-				return FDazToUnrealModule::Get().ImportFromDaz(JsonObject);
+				return FDazToUnrealModule::Get().ImportFromDaz(JsonObject, Filename);
 		  }
 	 }
 
