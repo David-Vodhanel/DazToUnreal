@@ -407,7 +407,9 @@ UMaterialInstanceConstant* FDazToUnrealMaterials::CreateMaterial(const FString C
 				{
 					FStaticParameterSet StaticParameters;
 					UnrealMaterialConstant->GetStaticParameterValues(StaticParameters);
-#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION > 0
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION > 1
+					TArray<FStaticSwitchParameter>& StaticSwitchParameters = StaticParameters.GetRuntime().StaticSwitchParameters;
+#elif ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION > 0
 					TArray<FStaticSwitchParameter>& StaticSwitchParameters = StaticParameters.EditorOnly.StaticSwitchParameters;
 #else
 					TArray<FStaticSwitchParameter>& StaticSwitchParameters = StaticParameters.StaticSwitchParameters;
