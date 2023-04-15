@@ -1234,7 +1234,7 @@ UObject* FDazToUnrealModule::ImportFromDaz(TSharedPtr<FJsonObject> JsonObject, c
 			 {
 				 FbxSurfaceMaterial* MaterialToReplace = GeometryNode->GetMaterial(AddIndex);
 				 FString MaterialToReplaceName = UTF8_TO_TCHAR(MaterialToReplace->GetName());
-				 if (DuplicateToOriginalName.Contains(MaterialToReplaceName))
+				 if (DuplicateToOriginalName.Contains(MaterialToReplaceName) && MaterialNameToFbxMaterial.Contains(DuplicateToOriginalName[MaterialToReplaceName]))
 				 {
 					 NewMaterialArray.Add(MaterialNameToFbxMaterial[DuplicateToOriginalName[MaterialToReplaceName]]);
 				 }
