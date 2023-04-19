@@ -185,6 +185,9 @@ void DzUnrealAction::writeConfiguration()
 	if (m_pSelectedNode == nullptr)
 		return;
 
+	QTextStream* pCSVStream = nullptr;
+	QFile *pCSVfile = nullptr;
+
 	 QString DTUfilename = m_sDestinationPath + m_sExportFilename + ".dtu";
 	 QFile DTUfile(DTUfilename);
 	 DTUfile.open(QIODevice::WriteOnly);
@@ -195,16 +198,17 @@ void DzUnrealAction::writeConfiguration()
 
 	 if (m_sAssetType.toLower().contains("mesh") || m_sAssetType == "Animation")
 	 {
-		 QTextStream *pCVSStream = nullptr;
 		 if (m_bExportMaterialPropertiesCSV)
 		 {
 			 QString filename = m_sDestinationPath + m_sExportFilename + "_Maps.csv";
-			 QFile file(filename);
-			 file.open(QIODevice::WriteOnly);
-			 pCVSStream = new QTextStream(&file);
-			 *pCVSStream << "Version, Object, Material, Type, Color, Opacity, File" << endl;
+			 pCSVfile = new QFile(filename);
+			 if (pCSVfile->open(QIODevice::WriteOnly))
+			 {
+				 pCSVStream = new QTextStream(pCSVfile);
+				 *pCSVStream << "Version, Object, Material, Type, Color, Opacity, File" << endl;
+			 }
 		 }
-		 writeAllMaterials(m_pSelectedNode, writer, pCVSStream);
+		 writeAllMaterials(m_pSelectedNode, writer, pCSVStream);
 		 writeAllMorphs(writer);
 
 		 // DB, 2022-July-5: Daz To Unified Bridge Format support
@@ -238,6 +242,13 @@ void DzUnrealAction::writeConfiguration()
 
 	 writer.finishObject();
 	 DTUfile.close();
+
+	 if (pCSVStream) delete(pCSVStream);
+	 if (pCSVfile) 
+	 {
+		pCSVfile->close();
+		delete(pCSVfile);
+	 }
 
 	 // DB, 2022-June-4: Hotfix for Corrupted Imports due to UDP Packet before UpgradeToHD
 	 if (m_EnableSubdivisions == false)
