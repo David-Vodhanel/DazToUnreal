@@ -1,7 +1,7 @@
 {
 	"FileVersion": 3,
 	"Version": 2022,
-	"VersionName": "5.1.0",
+	"VersionName": "5.2.0",
 	"FriendlyName": "DazToUnreal",
 	"Description": "",
 	"Category": "Other",
@@ -10,7 +10,7 @@
 	"DocsURL": "https://github.com/daz3d/DazToUnreal#readme",
 	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/content/070a312bc04c48bcb1a4d193aaddf73e",
 	"SupportURL": "https://github.com/daz3d/DazToUnreal/issues",
-	"EngineVersion": "5.1.0",
+	"EngineVersion": "5.2.0",
 	"CanContainContent": true,
 	"Installed": true,
 	"Modules": [
@@ -75,6 +75,11 @@
 		},
 		{
 			"Name": "VertexDeltaModel",
+			"Enabled": true,
+			"Optional": true
+		},
+		{
+			"Name": "ControlRig",
 			"Enabled": true,
 			"Optional": true
 		}

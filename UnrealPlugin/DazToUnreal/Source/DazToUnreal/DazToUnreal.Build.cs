@@ -37,6 +37,8 @@ public class DazToUnreal : ModuleRules
 				"SlateCore",
 				"EditorScriptingUtilities",
 				"SkeletalMeshUtilitiesCommon",
+				"ControlRig",
+				"ControlRigDeveloper",
 				"DazToUnrealRuntime",
 				// ... add private dependencies that you statically link with here ...	
 			}

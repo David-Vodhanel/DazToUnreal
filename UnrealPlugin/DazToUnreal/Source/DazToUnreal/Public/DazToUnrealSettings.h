@@ -29,6 +29,9 @@ public:
 		CombineIdenticalMaterials = true;
 		UpdatedFbxAsAscii = false;
 
+		CreateAutoJCMControlRig = true;
+		CreateFullBodyIKControlRig = true;
+
 		Genesis1Skeleton = FSoftObjectPath(TEXT("/DazToUnreal/Genesis1BaseSkeleton.Genesis1BaseSkeleton"));
 		Genesis3Skeleton = FSoftObjectPath(TEXT("/DazToUnreal/Genesis3BaseSkeleton.Genesis3BaseSkeleton"));
 		Genesis8Skeleton = FSoftObjectPath(TEXT("/DazToUnreal/Genesis8BaseSkeleton.Genesis8BaseSkeleton"));
@@ -39,28 +42,6 @@ public:
 		SkeletonPostProcessAnimation.Add(FSoftObjectPath(TEXT("/DazToUnreal/Genesis8BaseSkeleton.Genesis8BaseSkeleton")), FSoftClassPath(TEXT("/DazToUnreal/Genesis8JCMPostProcess.Genesis8JCMPostProcess_C")));
 
 		AddIKBones = true;
-
-		/*BaseShaderMaterials.Add(TEXT("Daz Studio Default"), FSoftObjectPath(TEXT("/DazToUnreal/DSDBaseMaterial.DSDBaseMaterial")));
-		BaseShaderMaterials.Add(TEXT("omUberSurface"), FSoftObjectPath(TEXT("/DazToUnreal/omUberBaseMaterial.omUberBaseMaterial")));
-		BaseShaderMaterials.Add(TEXT("AoA_Subsurface"), FSoftObjectPath(TEXT("/DazToUnreal/AoASubsurfaceBaseMaterial.AoASubsurfaceBaseMaterial")));
-		BaseShaderMaterials.Add(TEXT("Iray Uber"), FSoftObjectPath(TEXT("/DazToUnreal/IrayUberBaseMaterial.IrayUberBaseMaterial")));
-		BaseShaderMaterials.Add(TEXT("PBRSkin"), FSoftObjectPath(TEXT("/DazToUnreal/BasePBRSkinMaterial.BasePBRSkinMaterial")));
-
-		SkinShaderMaterials.Add(TEXT("Daz Studio Default"), FSoftObjectPath(TEXT("/DazToUnreal/DSDBaseMaterial.DSDBaseMaterial")));
-		SkinShaderMaterials.Add(TEXT("omUberSurface"), FSoftObjectPath(TEXT("/DazToUnreal/omUberSkinMaterial.omUberSkinMaterial")));
-		SkinShaderMaterials.Add(TEXT("AoA_Subsurface"), FSoftObjectPath(TEXT("/DazToUnreal/AoASubsurfaceSkinMaterial.AoASubsurfaceSkinMaterial")));
-		SkinShaderMaterials.Add(TEXT("Iray Uber"), FSoftObjectPath(TEXT("/DazToUnreal/IrayUberSkinMaterial.IrayUberSkinMaterial")));
-		SkinShaderMaterials.Add(TEXT("PBRSkin"), FSoftObjectPath(TEXT("/DazToUnreal/BasePBRSkinMaterial.BasePBRSkinMaterial")));
-
-		BaseMaterial = FSoftObjectPath(TEXT("/DazToUnreal/BaseMaterial.BaseMaterial"));
-		BaseAlphaMaterial = FSoftObjectPath(TEXT("/DazToUnreal/BaseAlphaMaterial.BaseAlphaMaterial"));
-		BaseMaskedMaterial = FSoftObjectPath(TEXT("/DazToUnreal/BaseMaskedMaterial.BaseMaskedMaterial"));
-		BaseSkinMaterial = FSoftObjectPath(TEXT("/DazToUnreal/BaseSSSSkinMaterial.BaseSSSSkinMaterial"));
-		BaseHairMaterial = FSoftObjectPath(TEXT("/DazToUnreal/BaseHairMaterial.BaseHairMaterial"));
-		BaseScalpMaterial = FSoftObjectPath(TEXT("/DazToUnreal/BaseScalpMaterial.BaseScalpMaterial"));
-		BaseEyeMoistureMaterial = FSoftObjectPath(TEXT("/DazToUnreal/BaseAlphaMaterial.BaseAlphaMaterial"));
-		BaseCorneaMaterial = FSoftObjectPath(TEXT("/DazToUnreal/BaseAlphaMaterial.BaseAlphaMaterial"));
-		NoDrawMaterial = FSoftObjectPath(TEXT("/DazToUnreal/NoDrawMaterial.NoDrawMaterial"));*/
 
 		UseOriginalMaterialName = false;
 		UseInternalMorphName = false;
@@ -145,6 +126,14 @@ public:
 	UPROPERTY(config, EditAnywhere, Category = PluginSettings)
 		bool UpdatedFbxAsAscii;
 
+	/** Create a Control Rig based Post Process Animation for handling AutoJCM morphs */
+	UPROPERTY(config, EditAnywhere, Category = ControlRig)
+		bool CreateAutoJCMControlRig;
+
+	/** Create a Full Body IK Control Rig for the character */
+	UPROPERTY(config, EditAnywhere, Category = ControlRig)
+		bool CreateFullBodyIKControlRig;
+
 	/** Skeleton to use for Genesis 1 characters */
 	UPROPERTY(config, EditAnywhere, Category = SkeletonSettings, meta = (AllowedClasses = "Skeleton"))
 		FSoftObjectPath Genesis1Skeleton;
@@ -172,46 +161,6 @@ public:
 	/** Material Packs to use.  Order matters, first matching material will be used.*/
 	UPROPERTY(config, EditAnywhere, Category = MaterialSettings, meta = (AllowedClasses = "DazToUnrealMaterialPack"))
 		TArray<FSoftObjectPath> MaterialPacks;
-
-	///** Used to set the default Material to use for a shader type from Daz Studio */
-	//UPROPERTY(config, EditAnywhere, Category = MaterialSettings)
-	//	TMap<FString, FSoftObjectPath> SkinShaderMaterials;
-
-	///** Override for the base that material instances will be derived from */
-	//UPROPERTY(config, EditAnywhere, Category = MaterialSettings, meta = (AllowedClasses = "Material"))
-	//	FSoftObjectPath BaseMaterial;
-
-	///** Override for the base with alpha that material instances will be derived from */
-	//UPROPERTY(config, EditAnywhere, Category = MaterialSettings, meta = (AllowedClasses = "Material"))
-	//	FSoftObjectPath BaseAlphaMaterial;
-
-	///** Override for the base with mask that material instances will be derived from */
-	//UPROPERTY(config, EditAnywhere, Category = MaterialSettings, meta = (AllowedClasses = "Material"))
-	//	FSoftObjectPath BaseMaskedMaterial;
-
-	///** Override for the base skin material that material instances will be derived from */
-	//UPROPERTY(config, EditAnywhere, Category = MaterialSettings, meta = (AllowedClasses = "Material"))
-	//	FSoftObjectPath BaseSkinMaterial;
-
-	///** Override for the base hair material that material instances will be derived from */
-	//UPROPERTY(config, EditAnywhere, Category = MaterialSettings, meta = (AllowedClasses = "Material"))
-	//	FSoftObjectPath BaseHairMaterial;
-
-	///** Override for the base scalp material that material instances will be derived from */
-	//UPROPERTY(config, EditAnywhere, Category = MaterialSettings, meta = (AllowedClasses = "Material"))
-	//	FSoftObjectPath BaseScalpMaterial;
-
-	///** Override for the base eye moisture material that material instances will be derived from */
-	//UPROPERTY(config, EditAnywhere, Category = MaterialSettings, meta = (AllowedClasses = "Material"))
-	//	FSoftObjectPath BaseEyeMoistureMaterial;
-
-	///** Override for the base cornea material that material instances will be derived from */
-	//UPROPERTY(config, EditAnywhere, Category = MaterialSettings, meta = (AllowedClasses = "Material"))
-	//	FSoftObjectPath BaseCorneaMaterial;
-
-	///** Override for the material to use for surfaces that shouldn't be drawn */
-	//UPROPERTY(config, EditAnywhere, Category = MaterialSettings, meta = (AllowedClasses = "Material"))
-	//	FSoftObjectPath NoDrawMaterial;
 
 	/** Used to change the name of material parameters at import time */
 	UPROPERTY(config, EditAnywhere, Category = MaterialSettings)

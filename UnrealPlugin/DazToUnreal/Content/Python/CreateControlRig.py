@@ -147,6 +147,10 @@ blueprint = unreal.AssetToolsHelpers.get_asset_tools().create_asset(asset_name=a
 #blueprint = unreal.load_object(name = '/Game/NewControlRigBlueprint.NewControlRigBlueprint', outer = None)
 
 if blueprint: 
+
+    # Turn off notifications or each change will compile the RigVM
+    blueprint.suspend_notifications(True)
+
     library = blueprint.get_local_function_library()
     library_controller = blueprint.get_controller(library)
     hierarchy = blueprint.hierarchy
@@ -319,5 +323,8 @@ if blueprint:
 
     skeletal_mesh = unreal.load_object(name = args.skeletalMesh, outer = None)
     unreal.ControlRigBlueprintLibrary.set_preview_mesh(blueprint, skeletal_mesh)
+
+    # Turn on notifications and force a recompile
+    blueprint.suspend_notifications(False)
     unreal.ControlRigBlueprintLibrary.recompile_vm(blueprint)
     #blueprint.get_controller_by_name('RigVMModel').add_link('RigUnit_BeginExecution.ExecuteContext', 'PBIK.ExecuteContext')
