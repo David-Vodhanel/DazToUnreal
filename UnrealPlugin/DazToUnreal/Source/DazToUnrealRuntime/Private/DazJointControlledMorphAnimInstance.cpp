@@ -2,6 +2,8 @@
 #include "Animation/AnimInstanceProxy.h"
 #include "Kismet/KismetMathLibrary.h"
 
+UDazJointControlledMorphAnimInstance::UDazJointControlledMorphAnimInstance(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer) {}
+
 void UDazJointControlledMorphAnimInstance::NativeInitializeAnimation()
 {
 	Super::NativeInitializeAnimation();

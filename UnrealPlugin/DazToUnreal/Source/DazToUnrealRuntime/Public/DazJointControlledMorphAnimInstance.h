@@ -160,11 +160,10 @@ private:
 UCLASS(Blueprintable)
 class DAZTOUNREALRUNTIME_API UDazJointControlledMorphAnimInstance : public UAnimInstance
 {
-	GENERATED_BODY()
+	GENERATED_UCLASS_BODY()
 
 public:
 
-	UDazJointControlledMorphAnimInstance() {};
 	virtual void NativeInitializeAnimation() override;
 	virtual void NativeUpdateAnimation(float DeltaTime) override;
 
