@@ -11,6 +11,7 @@
 #include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
 #include "PackageTools.h"
+#include "Misc/EngineVersionComparison.h"
 
 // Partially taken from UPoseAssetFactory::FactoryCreateNew
 UPoseAsset* FDazToUnrealPoses::CreatePoseAsset(UAnimSequence* SourceAnimation, TArray<FString> PoseNames)
@@ -29,6 +30,7 @@ UPoseAsset* FDazToUnrealPoses::CreatePoseAsset(UAnimSequence* SourceAnimation, T
 
 		USkeleton* TargetSkeleton = SourceAnimation->GetSkeleton();
 
+#if UE_VERSION_OLDER_THAN(5,3,0)
 		TArray<FSmartName> InputPoseNames;
 		if (PoseNames.Num() > 0)
 		{
@@ -46,6 +48,14 @@ UPoseAsset* FDazToUnrealPoses::CreatePoseAsset(UAnimSequence* SourceAnimation, T
 				InputPoseNames.AddUnique(NewName);
 			}
 		}
+#else
+		TArray<FName> InputPoseNames;
+		for (int32 Index = 0; Index < PoseNames.Num(); ++Index)
+		{
+			FName PoseName = FName(*PoseNames[Index]);
+			InputPoseNames.AddUnique(PoseName);
+		}
+#endif
 
 		FString PackageName = UPackageTools::SanitizePackageName(*(CachedSettings->PoseImportDirectory.Path / FString(SourceAnimation->GetName())));
 #if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 26
