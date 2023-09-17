@@ -11,3 +11,4 @@ x64/
 *.vcxproj.filters
 *.vcxproj.user
 moc_*.cpp
+__pycache__
