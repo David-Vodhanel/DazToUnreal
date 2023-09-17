@@ -46,3 +46,24 @@ FName UDazToUnrealBlueprintUtils::GetChildBone(const USkeleton* Skeleton, FName 
 	}
 	return NAME_None;
 }
+
+FName UDazToUnrealBlueprintUtils::GetJointBone(const class USkeleton* Skeleton, FName StartBone, FName EndBone)
+{
+	if (Skeleton)
+	{
+		int32 ParentBoneIndex = Skeleton->GetReferenceSkeleton().FindBoneIndex(StartBone);
+		if (ParentBoneIndex == INDEX_NONE) return NAME_None;
+
+		TArray<int32> ChildBoneIndexes;
+		Skeleton->GetChildBones(ParentBoneIndex, ChildBoneIndexes);
+		for (int32 ChildBoneIndex : ChildBoneIndexes)
+		{
+			FName ChildBoneName = Skeleton->GetReferenceSkeleton().GetBoneName(ChildBoneIndex);
+			if (ChildBoneName == EndBone) return StartBone;
+			FName JointBoneName = GetJointBone(Skeleton, ChildBoneName, EndBone);
+			if (JointBoneName != NAME_None) return JointBoneName;
+		}
+	
+	}
+	return NAME_None;
+}

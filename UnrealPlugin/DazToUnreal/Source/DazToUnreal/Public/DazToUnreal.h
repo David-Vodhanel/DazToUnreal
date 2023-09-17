@@ -110,6 +110,12 @@ private:
 	// Create the Full Body IK Control Rig
 	void OnCreateFullBodyIKControlRigClicked(FSoftObjectPath SourceObjectPath);
 
+	// Create the menu for generating an IK based Control Rig
+	void AddCreateIKLimbBasedControlRigMenu();
+
+	// Create the Full Body IK Control Rig
+	void OnCreateIKLimbBasedControlRigClicked(FSoftObjectPath SourceObjectPath);
+
 private:
 	TSharedPtr<class FUICommandList> PluginCommands;
 

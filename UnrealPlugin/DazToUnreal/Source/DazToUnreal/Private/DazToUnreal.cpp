@@ -198,6 +198,7 @@ void FDazToUnrealModule::StartupModule()
 
 	AddCreateRetargeterMenu();
 	AddCreateFullBodyIKControlRigMenu();
+	AddCreateIKLimbBasedControlRigMenu();
 
 	/*FGlobalTabmanager::Get()->RegisterNomadTabSpawner(DazToUnrealTabName, FOnSpawnTab::CreateRaw(this, &FDazToUnrealModule::OnSpawnPluginTab))
 		.SetDisplayName(LOCTEXT("FDazToUnrealTabTitle", "DazToUnreal"))
@@ -2170,6 +2171,51 @@ void FDazToUnrealModule::OnCreateFullBodyIKControlRigClicked(FSoftObjectPath Sou
 	FString DTUPath = FDazToUnrealUtils::GetDTUPathForModel(SourceObjectPath);
 	FString CreateControlRigCommand = FString::Format(TEXT("py CreateControlRig.py --skeletalMesh={0} --dtuFile=\"{1}\""), { SkeletalMeshPackagePath, DTUPath });
 	UE_LOG(LogDazToUnreal, Log, TEXT("Creating FBIK Control Rig with command: %s"), *CreateControlRigCommand);
+	GEngine->Exec(NULL, *CreateControlRigCommand);
+}
+
+void FDazToUnrealModule::AddCreateIKLimbBasedControlRigMenu()
+{
+#if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 1
+	// Create a new context menu item for Skeletal Meshes
+	UToolMenu* Menu = UToolMenus::Get()->ExtendMenu("ContentBrowser.AssetContextMenu.SkeletalMesh");
+	FToolMenuSection& Section = Menu->FindOrAddSection("GetAssetActions");
+
+	//USkeletalMesh* TargetSkeletalMesh = nullptr;
+	//if (const UContentBrowserAssetContextMenuContext* CBContext = Menu->Context.FindContext<UContentBrowserAssetContextMenuContext>())
+	//{
+	//	TargetSkeletalMesh = CBContext->LoadFirstSelectedObject<USkeletalMesh>();
+	//}
+
+	Section.AddDynamicEntry("CreateIKLimbBasedControlRig", FNewToolMenuSectionDelegate::CreateLambda(
+		[this](FToolMenuSection& Section)
+		{
+
+			if (UContentBrowserAssetContextMenuContext* Context = Section.FindContext<UContentBrowserAssetContextMenuContext>())
+			{
+				if (Context->SelectedAssets.Num() > 0)
+				{
+					Section.AddMenuEntry(
+						FName(TEXT("CreateIKLimbBasedControlRigMenu")),
+						LOCTEXT("CreateIKLimbBasedControlRigLabel", "Create IK Limb Based Control Rig"),
+						LOCTEXT("CreateIKLimbBasedControlRigLabelTip", "Creates a Control Rig with per limb IK"),
+						FSlateIcon(),
+						FUIAction(FExecuteAction::CreateRaw(this, &FDazToUnrealModule::OnCreateIKLimbBasedControlRigClicked, Context->SelectedAssets[0].GetSoftObjectPath()))
+					);
+				}
+			}
+		}
+	));
+
+#endif
+}
+
+void FDazToUnrealModule::OnCreateIKLimbBasedControlRigClicked(FSoftObjectPath SourceObjectPath)
+{
+	FString SkeletalMeshPackagePath = SourceObjectPath.ToString();//SourceSkeletalMesh->GetOutermost()->GetPathName() + TEXT(".") + SourceSkeletalMesh->GetName();
+	FString DTUPath = FDazToUnrealUtils::GetDTUPathForModel(SourceObjectPath);
+	FString CreateControlRigCommand = FString::Format(TEXT("py CreateIKLimbBasedControlRig.py --skeletalMesh={0} --dtuFile=\"{1}\""), { SkeletalMeshPackagePath, DTUPath });
+	UE_LOG(LogDazToUnreal, Log, TEXT("Creating IK Limb Based Control Rig with command: %s"), *CreateControlRigCommand);
 	GEngine->Exec(NULL, *CreateControlRigCommand);
 }
 
