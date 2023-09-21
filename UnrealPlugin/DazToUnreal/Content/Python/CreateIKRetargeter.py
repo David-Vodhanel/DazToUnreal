@@ -75,6 +75,12 @@ if source_force_front_x == False and target_force_front_x == True:
     rotation_offset.yaw = 90
     rtg_controller.set_rotation_offset_for_retarget_pose_bone("root", rotation_offset.quaternion(), unreal.RetargetSourceOrTarget.TARGET)
 
+# Setup the root translation
+root_chain_settings = rtg_controller.get_retarget_chain_settings('Root')
+root_chain_fk_settings = root_chain_settings.get_editor_property('fk')
+root_chain_fk_settings.set_editor_property('translation_mode', unreal.RetargetTranslationMode.ABSOLUTE)
+rtg_controller.set_retarget_chain_settings('Root', root_chain_settings)
+
 # Align chains
 source_skeleton = source_ik_mesh.get_editor_property('skeleton')
 target_skeleton = target_ik_mesh.get_editor_property('skeleton')
