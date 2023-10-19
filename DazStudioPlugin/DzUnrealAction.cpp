@@ -371,7 +371,10 @@ void DzUnrealAction::exportNode(DzNode* Node)
 		QDir dir;
 		dir.mkpath(m_sDestinationPath);
 		DzUnrealDialog* unrealBridgeDialog = qobject_cast<DzUnrealDialog*>(m_bridgeDialog);
-		MLDeformer::GeneratePoses(Node, unrealBridgeDialog->getMLDeformerPoseCountEdit()->text().toInt());
+		MLDeformer::GeneratePoses(Node, 
+			unrealBridgeDialog->getMLDeformerPoseCountEdit()->text().toInt(),
+			unrealBridgeDialog->getMLDeformerIncludeFingers(),
+			unrealBridgeDialog->getMLDeformerIncludeToes());
 		exportAnimation();
 		MLDeformer::ExportTrainingData(Node, m_sDestinationPath + m_sExportFilename + ".abc");
 		writeConfiguration();

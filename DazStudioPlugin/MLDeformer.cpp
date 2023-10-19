@@ -16,8 +16,7 @@
 #include <dzintproperty.h>
 #include <dzprogress.h>
 
-
-void MLDeformer::GeneratePoses(DzNode* Node, int PoseCount)
+void MLDeformer::GeneratePoses(DzNode* Node, int PoseCount, bool IncludeFingers, bool IncludeToes)
 {
     DzProgress exportProgress = DzProgress("DazBridge: MLDeformer Creating Poses", PoseCount, false, true);
     exportProgress.setCloseOnFinish(true);
@@ -31,13 +30,20 @@ void MLDeformer::GeneratePoses(DzNode* Node, int PoseCount)
 
     // Get the list of bones. There will be duplicates from clothing items in the list so it's a map
     QMap<QString, QList<DzNode*>> Bones;
-    GetBoneList(Node, Bones);
+    GetBoneList(Node, Bones, IncludeFingers, IncludeToes);
+
+    // Get a tick size for the progress bar
+    int progressTickSize = (PoseCount + 50) / 50;
 
     // Start at frame 1.  Leave frame 0 as the reference pose.
     for (int Frame = 1; Frame < PoseCount; Frame++)
     {
-        exportProgress.step();
-        QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
+        // Need this for the UI to update, but it's very slow, so run every 100th frame.
+        if (Frame % progressTickSize == 0)
+        {
+            exportProgress.update(Frame);
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
+        }
 
         for (QMap<QString, QList<DzNode*>>::iterator BoneNameIter = Bones.begin(); BoneNameIter != Bones.end(); ++BoneNameIter)
         {
@@ -76,7 +82,7 @@ float MLDeformer::RandomInRange(float Min, float Max)
     return Random;
 }
 
-void MLDeformer::GetBoneList(DzNode* Node, QMap<QString, QList<DzNode*>>& Bones)
+void MLDeformer::GetBoneList(DzNode* Node, QMap<QString, QList<DzNode*>>& Bones, bool IncludeFingers, bool IncludeToes)
 {
     if (DzBone* Bone = qobject_cast<DzBone*>(Node))
     {
@@ -96,16 +102,27 @@ void MLDeformer::GetBoneList(DzNode* Node, QMap<QString, QList<DzNode*>>& Bones)
 
         // Not doing face bones yet
         if (Node->getName() == "head") return;
+
     }
 
+    // Don't drill down if we're skipping specific sets
+    if (!IncludeFingers && Node->getName() == "l_hand") return;
+    if (!IncludeFingers && Node->getName() == "r_hand") return;
+    if (!IncludeFingers && Node->getName() == "lHand") return;
+    if (!IncludeFingers && Node->getName() == "rHand") return;
 
+    if (!IncludeToes && Node->getName() == "l_foot") return;
+    if (!IncludeToes && Node->getName() == "r_foot") return;
+    if (!IncludeToes && Node->getName() == "lFoot") return;
+    if (!IncludeToes && Node->getName() == "rFoot") return;
+    
     // Looks through the child nodes for more bones
     for (int ChildIndex = 0; ChildIndex < Node->getNumNodeChildren(); ChildIndex++)
     {
         DzNode* ChildNode = Node->getNodeChild(ChildIndex);
         if (DzBone* ChildBone = qobject_cast<DzBone*>(ChildNode))
         {
-            GetBoneList(ChildNode, Bones);
+            GetBoneList(ChildNode, Bones, IncludeFingers, IncludeToes);
         }
     }
 }
@@ -158,17 +175,23 @@ void MLDeformer::ExportTrainingData(DzNode* Node, QString FileName)
             }
         }
 
+        // Get a tick size for the progress bar
+        int progressTickSize = (PoseCount + 50) / 50;
+
         // Tick through the poses exporting them
         DzTimeRange PlayRange = dzScene->getPlayRange();
         for (DzTime CurrentTime = PlayRange.getStart(); CurrentTime <= PlayRange.getEnd(); CurrentTime += dzScene->getTimeStep())
         {
-            // Update the progress bar
-            exportProgress.step();
-            QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
-
             // Update the frame
             DzTime Frame = CurrentTime / dzScene->getTimeStep();
             dzScene->setFrame(Frame);
+
+            // Need this for the UI to update, but it's very slow, so run every 100th frame.
+            if (Frame % progressTickSize == 0)
+            {
+                exportProgress.update(Frame);
+                QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
+            }
 
             // Update the character and current figure mesh for the frame
             Node->update();
@@ -196,10 +219,11 @@ void MLDeformer::ExportTrainingData(DzNode* Node, QString FileName)
 
             std::vector<int> faceVertexIndices;
             std::vector<int> faceVertexCounts;
+            std::vector<int> uniqueVertexIndices;
             for (int FacetIndex = 0; FacetIndex < FacetMesh->getNumFacets(); FacetIndex++)
             {
                 // Skip geograft hidden faces
-                if (std::find(hiddenFaces.begin(), hiddenFaces.end(), FacetIndex) != hiddenFaces.end()) continue;
+                //if (std::find(hiddenFaces.begin(), hiddenFaces.end(), FacetIndex) != hiddenFaces.end()) continue;
 
                 // Add the vertex count for this face
                 DzFacet Facet = FacetMesh->getFacet(FacetIndex);
@@ -214,6 +238,9 @@ void MLDeformer::ExportTrainingData(DzNode* Node, QString FileName)
                 for (int FacetVertexIndex = 0; FacetVertexIndex < FacetVertexCount; FacetVertexIndex++)
                 {
                     faceVertexIndices.push_back(Facet.m_vertIdx[FacetVertexIndex]);
+                    //if (std::find(uniqueVertexIndices.begin(), uniqueVertexIndices.end(), Facet.m_vertIdx[FacetVertexIndex]) == uniqueVertexIndices.end()) {
+                    //    uniqueVertexIndices.push_back(Facet.m_vertIdx[FacetVertexIndex]);
+                    //}
                 }
             }
 

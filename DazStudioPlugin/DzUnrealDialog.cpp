@@ -95,6 +95,16 @@ DzUnrealDialog::DzUnrealDialog(QWidget *parent) :
 	mlDeformerSettingsLayout->addRow("Pose Count", mlDeformerPoseCountEdit);
 	mlDeformerSettingsGroupBox->setVisible(false);
 
+	mlDeformerIncludeFingersCheckBox = new QCheckBox("", mlDeformerSettingsGroupBox);
+	mlDeformerIncludeFingersCheckBox->setChecked(false);
+	mlDeformerIncludeFingersCheckBox->setWhatsThis("If checked, finger poses will be added.");
+	mlDeformerSettingsLayout->addRow("Include Fingers", mlDeformerIncludeFingersCheckBox);
+
+	mlDeformerIncludeToesCheckBox = new QCheckBox("", mlDeformerSettingsGroupBox);
+	mlDeformerIncludeToesCheckBox->setChecked(false);
+	mlDeformerIncludeToesCheckBox->setWhatsThis("If checked, toe poses will be added.");
+	mlDeformerSettingsLayout->addRow("Include Toes", mlDeformerIncludeToesCheckBox);
+
 	// Add ML Deformer settings to the mainLayout as a new row without header
 	mainLayout->addRow(mlDeformerSettingsGroupBox);
 
@@ -196,6 +206,14 @@ bool DzUnrealDialog::loadSavedSettings()
 	{
 		mlDeformerPoseCountEdit->setText(settings->value("MLDeformerPoseCount").toString());
 	}
+	if (!settings->value("MLDeformerIncludeFingers").isNull())
+	{
+		mlDeformerIncludeFingersCheckBox->setChecked(settings->value("MLDeformerIncludeFingers").toBool());
+	}
+	if (!settings->value("MLDeformerIncludeToes").isNull())
+	{
+		mlDeformerIncludeToesCheckBox->setChecked(settings->value("MLDeformerIncludeToes").toBool());
+	}
 
 	// SkeletalMesh settings
 	if (!settings->value("SkeletalMeshUniqueSkeletonPerCharacter").isNull())
@@ -219,6 +237,9 @@ void DzUnrealDialog::saveSettings()
 
 	// MLDeformer settings
 	settings->setValue("MLDeformerPoseCount", mlDeformerPoseCountEdit->text().toInt());
+	settings->setValue("MLDeformerIncludeFingers", mlDeformerIncludeFingersCheckBox->isChecked());
+	settings->setValue("MLDeformerIncludeToes", mlDeformerIncludeToesCheckBox->isChecked());
+
 
 	// SkeletalMesh settings
 	settings->setValue("SkeletalMeshUniqueSkeletonPerCharacter", skeletalMeshUniqueSkeletonPerCharacterCheckBox->isChecked());

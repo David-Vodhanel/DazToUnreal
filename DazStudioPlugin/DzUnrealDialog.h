@@ -27,7 +27,16 @@ public:
 	/** Destructor **/
 	virtual ~DzUnrealDialog() {}
 
-	//
+	// MLDeformer getters
+	bool getMLDeformerIncludeFingers() {
+		return mlDeformerIncludeFingersCheckBox ? mlDeformerIncludeFingersCheckBox->isChecked() : false;
+	}
+
+	bool getMLDeformerIncludeToes() {
+		return mlDeformerIncludeToesCheckBox ? mlDeformerIncludeToesCheckBox->isChecked() : false;
+	}
+
+	// SkeletalMesh getters
 	bool getUniqueSkeletonPerCharacter() { 
 		return skeletalMeshUniqueSkeletonPerCharacterCheckBox ? skeletalMeshUniqueSkeletonPerCharacterCheckBox->isChecked() : false;
 	}
@@ -57,6 +66,8 @@ protected:
 	// MLDeformer settings
 	QGroupBox* mlDeformerSettingsGroupBox = nullptr;
 	QLineEdit* mlDeformerPoseCountEdit = nullptr;
+	QCheckBox* mlDeformerIncludeFingersCheckBox = nullptr;
+	QCheckBox* mlDeformerIncludeToesCheckBox = nullptr;
 
 	// SkeletalMesh settings
 	QGroupBox* skeletalMeshSettingsGroupBox = nullptr;
