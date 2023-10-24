@@ -161,18 +161,40 @@ void MLDeformer::ExportTrainingData(DzNode* Node, QString FileName)
         Alembic::AbcGeom::OPolyMesh MeshObj(AbcArchive.getTop(), MeshName, TimeSampling);
         Alembic::AbcGeom::OPolyMeshSchema& MeshSchema = MeshObj.getSchema();
 
-        // Get Geograft hidden faces
-        DzFigure* Figure = qobject_cast<DzFigure*>(FigureNode);
-        std::vector<int> hiddenFaces;
-        for (int GraftFigureIndex = 0; GraftFigureIndex < Figure->getNumGraftFigures(); GraftFigureIndex++)
+        std::map<int, int> OldVertexIndexToNewVertexIndex;
+        std::vector<int> uniqueVertexIndices;
+        // First pass to get vertex numbers and create a remapping
         {
-            DzFigure* GraftFigure = Figure->getGraftFigure(GraftFigureIndex);
-            int GeograftHiddenFaceCount = GraftFigure->getNumFollowTargetHiddenFaces();
+            DzVertexMesh* DualQuaternionMesh = Object->getCachedGeom();
+            DzFacetMesh* FacetMesh = dynamic_cast<DzFacetMesh*>(DualQuaternionMesh);
 
-            for (int hiddenFace = 0; hiddenFace < GeograftHiddenFaceCount; hiddenFace++)
+            for (int FacetIndex = 0; FacetIndex < FacetMesh->getNumFacets(); FacetIndex++)
             {
-                hiddenFaces.push_back(GraftFigure->getFollowTargetHiddenFacesPtr()[hiddenFace]);
+                // Add the vertex count for this face
+                DzFacet Facet = FacetMesh->getFacet(FacetIndex);
+                int FacetVertexCount = 3;
+                if (Facet.isQuad())
+                {
+                    FacetVertexCount = 4;
+                }
+
+                // Add the vertex indices for this face
+                for (int FacetVertexIndex = 0; FacetVertexIndex < FacetVertexCount; FacetVertexIndex++)
+                {
+                    if (std::find(uniqueVertexIndices.begin(), uniqueVertexIndices.end(), Facet.m_vertIdx[FacetVertexIndex]) == uniqueVertexIndices.end()) {
+                        uniqueVertexIndices.push_back(Facet.m_vertIdx[FacetVertexIndex]);
+                    }
+                }
             }
+        }
+
+        int newIndex = 0;
+        std::sort(uniqueVertexIndices.begin(), uniqueVertexIndices.end());
+        for (auto iterator : uniqueVertexIndices)
+        {
+            int oldIndex = iterator;
+            OldVertexIndexToNewVertexIndex.insert(std::pair<int, int>(oldIndex, newIndex));
+            newIndex++;
         }
 
         // Get a tick size for the progress bar
@@ -205,7 +227,8 @@ void MLDeformer::ExportTrainingData(DzNode* Node, QString FileName)
             // Get the vertex positions
             std::vector<Imath::V3f> AlembicVertices;
             float scaleFactor = 1.0f;
-            for (int vertexID = 0; vertexID < DualQuaternionMesh->getNumVertices(); vertexID++)
+            // At this point uniqueVertexIndices is a sorted list of just the used vertices.  So using this will update the indexes as they are exported
+            for (auto vertexID: uniqueVertexIndices)
             {
                 AlembicVertices.push_back(Imath::V3f(DualQuaternionMesh->getVertex(vertexID)[0] * scaleFactor, DualQuaternionMesh->getVertex(vertexID)[1] * scaleFactor, DualQuaternionMesh->getVertex(vertexID)[2] * scaleFactor));
             }
@@ -222,9 +245,6 @@ void MLDeformer::ExportTrainingData(DzNode* Node, QString FileName)
             std::vector<int> uniqueVertexIndices;
             for (int FacetIndex = 0; FacetIndex < FacetMesh->getNumFacets(); FacetIndex++)
             {
-                // Skip geograft hidden faces
-                //if (std::find(hiddenFaces.begin(), hiddenFaces.end(), FacetIndex) != hiddenFaces.end()) continue;
-
                 // Add the vertex count for this face
                 DzFacet Facet = FacetMesh->getFacet(FacetIndex);
                 int FacetVertexCount = 3;
@@ -237,10 +257,9 @@ void MLDeformer::ExportTrainingData(DzNode* Node, QString FileName)
                 // Add the vertex indices for this face
                 for (int FacetVertexIndex = 0; FacetVertexIndex < FacetVertexCount; FacetVertexIndex++)
                 {
-                    faceVertexIndices.push_back(Facet.m_vertIdx[FacetVertexIndex]);
-                    //if (std::find(uniqueVertexIndices.begin(), uniqueVertexIndices.end(), Facet.m_vertIdx[FacetVertexIndex]) == uniqueVertexIndices.end()) {
-                    //    uniqueVertexIndices.push_back(Facet.m_vertIdx[FacetVertexIndex]);
-                    //}
+                    int vertexIndexInFace = Facet.m_vertIdx[FacetVertexIndex];
+                    int convertedIndex = OldVertexIndexToNewVertexIndex[vertexIndexInFace];
+                    faceVertexIndices.push_back(convertedIndex);
                 }
             }
 
