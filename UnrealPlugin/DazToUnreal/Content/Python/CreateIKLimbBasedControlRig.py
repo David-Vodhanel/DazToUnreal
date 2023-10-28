@@ -112,6 +112,19 @@ if blueprint:
         DTUControlRigHelpers.create_limb_ik(blueprint, skeleton, bone_limits, 'rCollar', 'rHand', 'iktarget')
         DTUControlRigHelpers.parent_control_to_bone(hierarchy_controller, 'chestUpper', 'rHand_ctrl')
 
+        # Fingers
+        DTUControlRigHelpers.create_slider_bend(blueprint, skeleton, bone_limits, 'lIndex1', 'lIndex3', 'lHand_ctrl')
+        DTUControlRigHelpers.create_slider_bend(blueprint, skeleton, bone_limits, 'lMid1', 'lMid3', 'lHand_ctrl')
+        DTUControlRigHelpers.create_slider_bend(blueprint, skeleton, bone_limits, 'lRing1', 'lRing3', 'lHand_ctrl')
+        DTUControlRigHelpers.create_slider_bend(blueprint, skeleton, bone_limits, 'lPinky1', 'lPinky3', 'lHand_ctrl')
+        DTUControlRigHelpers.create_slider_bend(blueprint, skeleton, bone_limits, 'lThumb1', 'lThumb3', 'lHand_ctrl')
+
+        DTUControlRigHelpers.create_slider_bend(blueprint, skeleton, bone_limits, 'rIndex1', 'rIndex3', 'rHand_ctrl')
+        DTUControlRigHelpers.create_slider_bend(blueprint, skeleton, bone_limits, 'rMid1', 'rMid3', 'rHand_ctrl')
+        DTUControlRigHelpers.create_slider_bend(blueprint, skeleton, bone_limits, 'rRing1', 'rRing3', 'rHand_ctrl')
+        DTUControlRigHelpers.create_slider_bend(blueprint, skeleton, bone_limits, 'rPinky1', 'rPinky3', 'rHand_ctrl')
+        DTUControlRigHelpers.create_slider_bend(blueprint, skeleton, bone_limits, 'rThumb1', 'rThumb3', 'rHand_ctrl')
+
     if DTUControlRigHelpers.get_character_type(dtu_data) == 'Genesis9':
         DTUControlRigHelpers.create_control(blueprint, 'root', None, 'root')
         DTUControlRigHelpers.create_control(blueprint, 'hip', 'root', 'hip')
@@ -136,6 +149,20 @@ if blueprint:
         DTUControlRigHelpers.create_control(blueprint, 'r_hand', 'spine4', 'iktarget')
         DTUControlRigHelpers.create_limb_ik(blueprint, skeleton, bone_limits, 'r_shoulder', 'r_hand', 'iktarget')
         DTUControlRigHelpers.parent_control_to_bone(hierarchy_controller, 'spine4', 'r_hand_ctrl')
+
+        # Fingers
+        DTUControlRigHelpers.create_slider_bend(blueprint, skeleton, bone_limits, 'l_index1', 'l_index3', 'l_hand_ctrl')
+        DTUControlRigHelpers.create_slider_bend(blueprint, skeleton, bone_limits, 'l_mid1', 'l_mid3', 'l_hand_ctrl')
+        DTUControlRigHelpers.create_slider_bend(blueprint, skeleton, bone_limits, 'l_ring1', 'l_ring3', 'l_hand_ctrl')
+        DTUControlRigHelpers.create_slider_bend(blueprint, skeleton, bone_limits, 'l_pinky1', 'l_pinky3', 'l_hand_ctrl')
+        DTUControlRigHelpers.create_slider_bend(blueprint, skeleton, bone_limits, 'l_thumb1', 'l_thumb3', 'l_hand_ctrl')
+
+        DTUControlRigHelpers.create_slider_bend(blueprint, skeleton, bone_limits, 'r_index1', 'r_index3', 'r_hand_ctrl')
+        DTUControlRigHelpers.create_slider_bend(blueprint, skeleton, bone_limits, 'r_mid1', 'r_mid3', 'r_hand_ctrl')
+        DTUControlRigHelpers.create_slider_bend(blueprint, skeleton, bone_limits, 'r_ring1', 'r_ring3', 'r_hand_ctrl')
+        DTUControlRigHelpers.create_slider_bend(blueprint, skeleton, bone_limits, 'r_pinky1', 'r_pinky3', 'r_hand_ctrl')
+        DTUControlRigHelpers.create_slider_bend(blueprint, skeleton, bone_limits, 'r_thumb1', 'r_thumb3', 'r_hand_ctrl')
+        
 
     # Attach the node to execute
     #rig_controller.add_link(next_forward_execute, 'PBIK.ExecuteContext')

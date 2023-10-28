@@ -28,6 +28,15 @@ class bone_limits_struct():
             if abs(self.bone_limit_z_min) > abs(self.bone_limit_z_max): return 0.0, 0.0, self.bone_limit_z_min
             return 0.0, 0.0, self.bone_limit_z_max
 
+    def get_up_vector(self):
+        x, y, z = self.get_preferred_angle()
+        primary_axis = unreal.Vector(x, y, z)
+        primary_axis.normalize()
+        up_axis = unreal.Vector(-1.0 * z, y, -1.0 * x)
+        return up_axis.normal()
+
+
+
 def get_bone_limits(dtu_json, skeletal_mesh_force_front_x):
 
     limits = dtu_json['LimitData']
@@ -103,6 +112,17 @@ def set_control_shape(blueprint, bone_name, shape_type):
         control_settings_root_ctrl.shape_name = 'Arrow4_Thick'
         hierarchy.set_control_settings(unreal.RigElementKey(type=unreal.RigElementType.CONTROL, name=control_name), control_settings_root_ctrl)
         hierarchy.set_control_shape_transform(unreal.RigElementKey(type=unreal.RigElementType.CONTROL, name=control_name), unreal.Transform(location=[0.000000,0.000000,0.000000],rotation=[0.000000,0.000000,0.000000],scale=[8.000000,8.000000,8.000000]), True)
+
+    if shape_type == "slider":
+        control_settings_root_ctrl.control_type = unreal.RigControlType.FLOAT
+        control_settings_root_ctrl.primary_axis = unreal.RigControlAxis.Y
+        control_settings_root_ctrl.limit_enabled = [unreal.RigControlLimitEnabled(True, True)]
+        control_settings_root_ctrl.minimum_value = unreal.RigHierarchy.make_control_value_from_float(0.000000)
+        control_settings_root_ctrl.maximum_value = unreal.RigHierarchy.make_control_value_from_float(1.000000)
+        control_settings_root_ctrl.shape_name = 'Arrow2_Thin'
+        hierarchy.set_control_settings(unreal.RigElementKey(type=unreal.RigElementType.CONTROL, name=control_name), control_settings_root_ctrl)
+        hierarchy.set_control_shape_transform(unreal.RigElementKey(type=unreal.RigElementType.CONTROL, name=control_name), unreal.Transform(location=[0.000000,0.000000,0.000000],rotation=[0.000000,0.000000,0.000000],scale=[0.5,0.5,0.5]), True)
+
 
 last_construction_link = 'PrepareForExecution'
 construction_y_pos = 200
@@ -250,7 +270,7 @@ def create_control(blueprint, bone_name, parent_bone_name, shape_type):
 
     set_control_shape(blueprint, bone_name, shape_type)
 
-    if shape_type in ['iktarget', 'large_2d_bend']: return control_name
+    if shape_type in ['iktarget', 'large_2d_bend', 'slider']: return control_name
 
     # Link Control to Bone
     get_transform_node_name = bone_name + "_GetTransform"
@@ -400,5 +420,68 @@ def create_2d_bend(blueprint, skeleton, bone_limits, start_bone_name, end_bone_n
     #blueprint.get_controller_by_name('RigVMModel').add_link('rHand_GetTransform.Transform.Rotation', 'abdomenLower_to_chestUpper_DistributeRotation.Rotations.0.Rotation')
 
     blueprint.get_controller_by_name('RigVMModel').add_link(next_forward_execute, distribute_node_name + '.ExecuteContext')
+    node_y_pos = node_y_pos + 350
+    next_forward_execute = distribute_node_name + '.ExecuteContext'
+
+def create_slider_bend(blueprint, skeleton, bone_limits, start_bone_name, end_bone_name, parent_control_name):
+    global node_y_pos
+    global next_forward_execute
+
+    hierarchy = blueprint.hierarchy
+    hierarchy_controller = hierarchy.get_controller()
+
+    ctrl_name = create_control(blueprint, start_bone_name, None, 'slider')
+
+    distribute_node_name = start_bone_name + "_to_" + end_bone_name + "_DistributeRotation"
+    blueprint.get_controller_by_name('RigVMModel').add_unit_node_from_struct_path('/Script/ControlRig.RigUnit_DistributeRotationForItemArray', 'Execute', unreal.Vector2D(800.0, node_y_pos), distribute_node_name)
+    blueprint.get_controller_by_name('RigVMModel').set_pin_default_value(distribute_node_name + '.RotationEaseType', 'Linear')
+    blueprint.get_controller_by_name('RigVMModel').set_pin_default_value(distribute_node_name + '.Weight', '0.25')
+    rotation_pin = blueprint.get_controller_by_name('RigVMModel').insert_array_pin(distribute_node_name + '.Rotations', -1, '')
+    
+
+    item_collection_node_name = start_bone_name + "_to_" + end_bone_name + "_ItemCollection"
+    blueprint.get_controller_by_name('RigVMModel').add_unit_node_from_struct_path('/Script/ControlRig.RigUnit_CollectionChainArray', 'Execute', unreal.Vector2D(120.0, node_y_pos), item_collection_node_name)
+    blueprint.get_controller_by_name('RigVMModel').set_pin_default_value(item_collection_node_name + '.FirstItem', '(Type=Bone,Name="None")')
+    blueprint.get_controller_by_name('RigVMModel').set_pin_expansion(item_collection_node_name + '.FirstItem', True)
+    blueprint.get_controller_by_name('RigVMModel').set_pin_default_value(item_collection_node_name + '.LastItem', '(Type=Bone,Name="None")')
+    blueprint.get_controller_by_name('RigVMModel').set_pin_expansion(item_collection_node_name + '.LastItem', True)
+    blueprint.get_controller_by_name('RigVMModel').set_pin_default_value(item_collection_node_name + '.Reverse', 'False')
+    blueprint.get_controller_by_name('RigVMModel').set_pin_default_value(item_collection_node_name + '.FirstItem.Name', start_bone_name, False)
+    blueprint.get_controller_by_name('RigVMModel').set_pin_default_value(item_collection_node_name + '.LastItem.Name', end_bone_name, False)
+
+
+    blueprint.get_controller_by_name('RigVMModel').add_link(item_collection_node_name + '.Items', distribute_node_name + '.Items')
+
+    # Create Rotation Node
+    rotation_node_name = start_bone_name + "_to_" + end_bone_name + "_Rotation"
+    x_preferred, y_preferred, z_preferred = bone_limits[start_bone_name].get_preferred_angle()
+    blueprint.get_controller_by_name('RigVMModel').add_unit_node_from_struct_path('/Script/RigVM.RigVMFunction_MathQuaternionFromEuler', 'Execute', unreal.Vector2D(350.0, node_y_pos), rotation_node_name)
+    blueprint.get_controller_by_name('RigVMModel').set_pin_default_value(rotation_node_name + '.Euler', '(X=0.000000,Y=0.000000,Z=0.000000)')
+    blueprint.get_controller_by_name('RigVMModel').set_pin_expansion(rotation_node_name + '.Euler', True)
+    blueprint.get_controller_by_name('RigVMModel').set_pin_default_value(rotation_node_name + '.RotationOrder', 'ZYX')
+    blueprint.get_controller_by_name('RigVMModel').set_pin_default_value(rotation_node_name + '.Euler.X', str(x_preferred * -1.0), False)
+    blueprint.get_controller_by_name('RigVMModel').set_pin_default_value(rotation_node_name + '.Euler.Y', str(y_preferred), False)
+    blueprint.get_controller_by_name('RigVMModel').set_pin_default_value(rotation_node_name + '.Euler.Z', str(z_preferred), False)
+
+    # Get Control Float
+    control_float_node_name = start_bone_name + "_to_" + end_bone_name + "_ControlFloat"
+    blueprint.get_controller_by_name('RigVMModel').add_unit_node_from_struct_path('/Script/ControlRig.RigUnit_GetControlFloat', 'Execute', unreal.Vector2D(500.0, node_y_pos), control_float_node_name)
+    blueprint.get_controller_by_name('RigVMModel').set_pin_default_value(control_float_node_name + '.Control', 'None')
+    blueprint.get_controller_by_name('RigVMModel').set_pin_default_value(control_float_node_name + '.Control', ctrl_name, False)
+
+    blueprint.get_controller_by_name('RigVMModel').add_link(rotation_node_name + '.Result', rotation_pin + '.Rotation')
+    blueprint.get_controller_by_name('RigVMModel').add_link(next_forward_execute, distribute_node_name + '.ExecuteContext')
+    blueprint.get_controller_by_name('RigVMModel').add_link(control_float_node_name + '.FloatValue', distribute_node_name + '.Weight')
+
+
+    parent_control_to_control(hierarchy_controller, parent_control_name, ctrl_name)
+
+    # Offset the control so it's not in the figure.  Not working...
+    up_vector = bone_limits[start_bone_name].get_up_vector()
+    #up_transform = unreal.Transform(location=up_vector,rotation=[0.000000,0.000000,0.000000],scale=[1.000000,1.000000,1.000000])
+    #up_transform = unreal.Transform(location=[0.0, 0.0, 50.0],rotation=[0.000000,0.000000,0.000000],scale=[1.000000,1.000000,1.000000])
+    #hierarchy.set_control_offset_transform(unreal.RigElementKey(type=unreal.RigElementType.CONTROL, name=ctrl_name), up_transform)
+
+
     node_y_pos = node_y_pos + 350
     next_forward_execute = distribute_node_name + '.ExecuteContext'
