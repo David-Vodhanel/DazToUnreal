@@ -43,6 +43,7 @@ struct DazToUnrealImportData
 	bool bSetPostProcessAnimation = true;
 	bool bCreateUniqueSkeleton = false;
 	bool bFixTwistBones = false;
+	bool bFaceCharacterRight = false;
 };
 
 class FDazToUnrealModule : public IModuleInterface//, TSharedFromThis<FDazToUnrealModule>

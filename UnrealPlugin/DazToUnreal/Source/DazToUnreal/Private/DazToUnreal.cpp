@@ -544,7 +544,10 @@ UObject* FDazToUnrealModule::ImportFromDaz(TSharedPtr<FJsonObject> JsonObject, c
 	 ImportData.AssetType = AssetType;
 	 ImportData.CharacterTypeName = AssetID;
 	 JsonObject->TryGetBoolField(TEXT("CreateUniqueSkeleton"), ImportData.bCreateUniqueSkeleton);
-	 JsonObject->TryGetBoolField(TEXT("FixTwistBones"), ImportData.bFixTwistBones);
+	 if (!JsonObject->TryGetBoolField(TEXT("FaceCharacterRight"), ImportData.bFaceCharacterRight))
+	 {
+		 ImportData.bFaceCharacterRight = CachedSettings->ZeroRootRotationOnImport;
+	 }
 
 	 if (AssetType == DazAssetType::Environment)
 	 {
@@ -1861,7 +1864,7 @@ UObject* FDazToUnrealModule::ImportFBXAsset(const DazToUnrealImportData& DazImpo
 		  FbxFactory->ImportUI->bImportAnimations = false;
 		  FbxFactory->ImportUI->SkeletalMeshImportData->bUseT0AsRefPose = CachedSettings->FrameZeroIsReferencePose;
 		  FbxFactory->ImportUI->SkeletalMeshImportData->bConvertScene = true;
-		  FbxFactory->ImportUI->SkeletalMeshImportData->bForceFrontXAxis = CachedSettings->ZeroRootRotationOnImport;
+		  FbxFactory->ImportUI->SkeletalMeshImportData->bForceFrontXAxis = DazImportData.bFaceCharacterRight;
 		  // DB 2023-May-26: ReEnabling to support bone attached props, until alternative is 100% working
 	 	  FbxFactory->ImportUI->SkeletalMeshImportData->bImportMeshesInBoneHierarchy = true;
 		  FbxFactory->ImportUI->MeshTypeToImport = FBXIT_SkeletalMesh;
@@ -1882,7 +1885,7 @@ UObject* FDazToUnrealModule::ImportFBXAsset(const DazToUnrealImportData& DazImpo
 		  FbxFactory->ImportUI->bImportTextures = false;
 		  FbxFactory->ImportUI->bImportAnimations = true;
 		  FbxFactory->ImportUI->AnimSequenceImportData->bConvertScene = true;
-		  FbxFactory->ImportUI->AnimSequenceImportData->bForceFrontXAxis = CachedSettings->ZeroRootRotationOnImport;
+		  FbxFactory->ImportUI->AnimSequenceImportData->bForceFrontXAxis = DazImportData.bFaceCharacterRight;;
 		  FbxFactory->ImportUI->MeshTypeToImport = FBXIT_Animation;
 	 }
 	 //UFbxFactory::EnableShowOption();

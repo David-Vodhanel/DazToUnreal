@@ -123,6 +123,11 @@ DzUnrealDialog::DzUnrealDialog(QWidget *parent) :
 	skeletalMeshFixTwistBonesCheckBox->setWhatsThis("If checked, twist bones will be taken out of line.");
 	skeletalMeshSettingsLayout->addRow("Fix Twist Bones", skeletalMeshFixTwistBonesCheckBox);
 
+	skeletalMeshFaceCharacterRightCheckBox = new QCheckBox("", skeletalMeshSettingsGroupBox);
+	skeletalMeshFaceCharacterRightCheckBox->setChecked(false);
+	skeletalMeshFaceCharacterRightCheckBox->setWhatsThis("If checked, character will be imported facing right (X Forward) in Unreal.");
+	skeletalMeshSettingsLayout->addRow("Import Facing Right", skeletalMeshFaceCharacterRightCheckBox);
+
 	mlDeformerSettingsGroupBox->setVisible(false);
 
 	// Add SkeletalMesh settings to the mainLayout as a new row without header
@@ -226,6 +231,11 @@ bool DzUnrealDialog::loadSavedSettings()
 		skeletalMeshFixTwistBonesCheckBox->setChecked(settings->value("SkeletalMeshFixTwistBones").toBool());
 	}
 
+	if (!settings->value("SkeletalMeshFaceCharacterRight").isNull())
+	{
+		skeletalMeshFaceCharacterRightCheckBox->setChecked(settings->value("SkeletalMeshFaceCharacterRight").toBool());
+	}
+
 	return true;
 }
 
@@ -244,6 +254,7 @@ void DzUnrealDialog::saveSettings()
 	// SkeletalMesh settings
 	settings->setValue("SkeletalMeshUniqueSkeletonPerCharacter", skeletalMeshUniqueSkeletonPerCharacterCheckBox->isChecked());
 	settings->setValue("SkeletalMeshFixTwistBones", skeletalMeshFixTwistBonesCheckBox->isChecked());
+	settings->setValue("SkeletalMeshFaceCharacterRight", skeletalMeshFaceCharacterRightCheckBox->isChecked());
 }
 
 void DzUnrealDialog::resetToDefaults()
