@@ -1,5 +1,8 @@
 import unreal
 import argparse
+import DTUControlRigHelpers
+import importlib
+importlib.reload(DTUControlRigHelpers)
 
 # Info about Python with IKRigs here:
 # https://docs.unrealengine.com/5.2/en-US/using-python-to-create-and-edit-ik-rigs-in-unreal-engine/
@@ -81,6 +84,14 @@ root_chain_fk_settings = root_chain_settings.get_editor_property('fk')
 root_chain_fk_settings.set_editor_property('translation_mode', unreal.RetargetTranslationMode.ABSOLUTE)
 rtg_controller.set_retarget_chain_settings('Root', root_chain_settings)
 
+# Set the root Settings (not the root chain settings)
+root_settings = rtg_controller.get_root_settings()
+root_settings.blend_to_source = 1.0 # Fixes a hitch in the MM_Run_Fwd conversion
+rtg_controller.set_root_settings(root_settings)
+
+# Get the bone limit data
+bone_limits = DTUControlRigHelpers.get_bone_limits_from_skeletalmesh(target_ik_mesh)
+
 # Align chains
 source_skeleton = source_ik_mesh.get_editor_property('skeleton')
 target_skeleton = target_ik_mesh.get_editor_property('skeleton')
@@ -88,14 +99,30 @@ target_skeleton = target_ik_mesh.get_editor_property('skeleton')
 source_reference_pose = source_skeleton.get_reference_pose()
 target_reference_pose = target_skeleton.get_reference_pose()
 
-for chain in ['LeftArm', 'RightArm', 'LeftLeg', 'RightLeg']:
+def single_axis_bend(target_bone, source_bone):
+    axis_x, axis_y, axis_z = bone_limits[str(target_bone)].get_preferred_angle()
 
-    # Get the source chain info
-    source_start_bone = source_ikr_controller.get_retarget_chain_start_bone(chain)
-    source_end_bone = unreal.DazToUnrealBlueprintUtils.get_child_bone(source_skeleton, source_start_bone)
-    source_start_bone_transform = source_reference_pose.get_ref_bone_pose(source_start_bone, space=unreal.AnimPoseSpaces.WORLD)
+    source_bone_transform = source_reference_pose.get_ref_bone_pose(source_bone, space=unreal.AnimPoseSpaces.LOCAL)
+    source_bone_rotation = source_bone_transform.get_editor_property('rotation').rotator()
+    source_angle = abs(max(source_bone_rotation.get_editor_property("pitch"), source_bone_rotation.get_editor_property("yaw"), source_bone_rotation.get_editor_property("roll"), key=lambda x: abs(x)))
+
+    new_rot = unreal.Rotator()
+    if axis_x > 0.01: new_rot.set_editor_property('roll', source_angle) #X
+    if axis_x < -0.01: new_rot.set_editor_property('roll', source_angle * -1.0) #X
+
+    if axis_y > 0.01: new_rot.set_editor_property('pitch', source_angle) #Y
+    if axis_y < -0.01: new_rot.set_editor_property('pitch', source_angle * -1.0) #Y
+
+    if axis_z > 0.01: new_rot.set_editor_property('yaw', source_angle) #Z
+    if axis_z < -0.01: new_rot.set_editor_property('yaw', source_angle * -1.0) #Z
+
+    rtg_controller.set_rotation_offset_for_retarget_pose_bone(target_bone, new_rot.quaternion(), unreal.RetargetSourceOrTarget.TARGET)
+
+def dual_axis_target_bend(target_bone, source_bone, target_end_bone, source_end_bone):
+
+    source_bone_transform = source_reference_pose.get_ref_bone_pose(source_bone, space=unreal.AnimPoseSpaces.WORLD)
     source_end_bone_transform = source_reference_pose.get_ref_bone_pose(source_end_bone, space=unreal.AnimPoseSpaces.WORLD)
-    source_relative_position = source_end_bone_transform.get_editor_property('translation') - source_start_bone_transform.get_editor_property('translation')
+    source_relative_position = source_end_bone_transform.get_editor_property('translation') - source_bone_transform.get_editor_property('translation')
 
     # Fix the axis if the target character is facing right
     if source_force_front_x == False and target_force_front_x == True:
@@ -105,19 +132,17 @@ for chain in ['LeftArm', 'RightArm', 'LeftLeg', 'RightLeg']:
         new_relative_position.z = source_relative_position.z
         source_relative_position = new_relative_position
 
-    # Get the target chain info
-    target_start_bone = target_ikr_controller.get_retarget_chain_start_bone(chain)
-    target_end_bone = unreal.DazToUnrealBlueprintUtils.get_child_bone(target_skeleton, target_start_bone)
-    target_start_bone_transform_world = target_reference_pose.get_ref_bone_pose(target_start_bone, space=unreal.AnimPoseSpaces.WORLD)
-    target_end_bone_transform_local = target_reference_pose.get_ref_bone_pose(target_end_bone, space=unreal.AnimPoseSpaces.LOCAL)
-    target_position = target_start_bone_transform_world.get_editor_property('translation') + source_relative_position
+    target_bone_transform_world = target_reference_pose.get_ref_bone_pose(target_bone, space=unreal.AnimPoseSpaces.WORLD)
+    target_end_bone_transform_world = target_reference_pose.get_ref_bone_pose(target_end_bone, space=unreal.AnimPoseSpaces.WORLD)
+    target_relative_position = target_end_bone_transform_world.get_editor_property('translation') - target_bone_transform_world.get_editor_property('translation')
+
+    target_position = target_bone_transform_world.get_editor_property('translation') + source_relative_position #- (target_relative_position - source_relative_position)
+    new_pos = target_bone_transform_world.inverse_transform_location(target_position)
+
+    target_child_bone = unreal.DazToUnrealBlueprintUtils.get_next_bone(target_skeleton, target_bone, target_end_bone)
+    target_child_bone_transform_local = target_reference_pose.get_ref_bone_pose(target_child_bone, space=unreal.AnimPoseSpaces.LOCAL)
+    forward_direction = get_bone_forward_axis(target_child_bone_transform_local.get_editor_property('translation'))
     
-    # Find the forward direction for the 
-    forward_direction = get_bone_forward_axis(target_end_bone_transform_local.get_editor_property('translation'))
-
-    # The new target for the joint rotation
-    new_pos = target_start_bone_transform_world.inverse_transform_location(target_position)
-
     # Make a rotator to point the joints at the new
     new_rot = unreal.Rotator()
     if forward_direction[0] == 'X':
@@ -126,7 +151,13 @@ for chain in ['LeftArm', 'RightArm', 'LeftLeg', 'RightLeg']:
         new_rot.set_editor_property('pitch', y_rot) #Y
         new_rot.set_editor_property('yaw', z_rot) #Z
 
-    if forward_direction[0] == 'Y':
+    if forward_direction == 'Y+':
+        x_rot = unreal.MathLibrary.deg_atan(new_pos.z / new_pos.y) #* -1.0
+        z_rot = unreal.MathLibrary.deg_atan(new_pos.x / new_pos.y) * -1.0
+        new_rot.set_editor_property('yaw', z_rot) #Z
+        new_rot.set_editor_property('roll', x_rot) #X
+
+    if forward_direction == 'Y-':
         x_rot = unreal.MathLibrary.deg_atan(new_pos.z / new_pos.y) * -1.0
         z_rot = unreal.MathLibrary.deg_atan(new_pos.x / new_pos.y) * -1.0
         new_rot.set_editor_property('yaw', z_rot) #Z
@@ -139,4 +170,53 @@ for chain in ['LeftArm', 'RightArm', 'LeftLeg', 'RightLeg']:
         new_rot.set_editor_property('pitch', y_rot) #Y 
 
     # Set the new rotation on the joint
-    rtg_controller.set_rotation_offset_for_retarget_pose_bone(target_start_bone, new_rot.quaternion(), unreal.RetargetSourceOrTarget.TARGET)
+    rtg_controller.set_rotation_offset_for_retarget_pose_bone(target_bone, new_rot.quaternion(), unreal.RetargetSourceOrTarget.TARGET)
+
+# Single Axis Bends (Elbow, Knee, etc)
+for chain in ['LeftArm', 'RightArm', 'LeftLeg', 'RightLeg']:
+    source_start_bone = source_ikr_controller.get_retarget_chain_start_bone(chain)
+    source_end_bone = source_ikr_controller.get_retarget_chain_end_bone(chain)
+
+    target_start_bone = target_ikr_controller.get_retarget_chain_start_bone(chain)
+    target_end_bone = target_ikr_controller.get_retarget_chain_end_bone(chain)
+    
+    target_bone = unreal.DazToUnrealBlueprintUtils.get_next_bone(target_skeleton, target_start_bone, target_end_bone)
+    source_bone = unreal.DazToUnrealBlueprintUtils.get_next_bone(source_skeleton, source_start_bone, source_end_bone)
+
+    single_axis_bend(target_bone, source_bone)
+
+# Dual Axis Bends (Elbow, Knee, etc)
+for chain in ['LeftArm', 'RightArm', 'LeftLeg', 'RightLeg']:
+    source_start_bone = source_ikr_controller.get_retarget_chain_start_bone(chain)
+    source_end_bone = source_ikr_controller.get_retarget_chain_end_bone(chain)
+
+    target_start_bone = target_ikr_controller.get_retarget_chain_start_bone(chain)
+    target_end_bone = target_ikr_controller.get_retarget_chain_end_bone(chain)
+    
+    # Get the joint (elbow, knee)
+    target_joint_bone = unreal.DazToUnrealBlueprintUtils.get_next_bone(target_skeleton, target_start_bone, target_end_bone)
+    source_joint_bone = unreal.DazToUnrealBlueprintUtils.get_next_bone(source_skeleton, source_start_bone, source_end_bone)
+
+    # Got one deeper (hand, foot)
+    target_end_bone = unreal.DazToUnrealBlueprintUtils.get_next_bone(target_skeleton, target_joint_bone, target_end_bone)
+    source_end_bone = unreal.DazToUnrealBlueprintUtils.get_next_bone(source_skeleton, source_joint_bone, source_end_bone)
+
+    dual_axis_target_bend(target_start_bone, source_start_bone, target_end_bone, source_end_bone)
+
+# Single Axis Chains (fingers)
+for chain in ['RightThumb', 'RightIndex', 'RightMiddle', 'RightRing', 'RightPinky', 'LeftThumb', 'LeftIndex', 'LeftMiddle', 'LeftRing', 'LeftPinky']:
+    source_start_bone = source_ikr_controller.get_retarget_chain_start_bone(chain)
+    source_end_bone = source_ikr_controller.get_retarget_chain_end_bone(chain)
+
+    target_start_bone = target_ikr_controller.get_retarget_chain_start_bone(chain)
+    target_end_bone = target_ikr_controller.get_retarget_chain_end_bone(chain)
+
+    while target_start_bone and source_start_bone and target_start_bone != target_end_bone and source_start_bone != source_end_bone:
+    
+        target_bone = unreal.DazToUnrealBlueprintUtils.get_next_bone(target_skeleton, target_start_bone, target_end_bone)
+        source_bone = unreal.DazToUnrealBlueprintUtils.get_next_bone(source_skeleton, source_start_bone, source_end_bone)
+
+        single_axis_bend(target_bone, source_bone)
+
+        target_start_bone = target_bone
+        source_start_bone = source_bone

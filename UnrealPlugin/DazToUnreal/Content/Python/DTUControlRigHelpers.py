@@ -1,4 +1,6 @@
 import unreal
+import os.path
+import json
 
 class bone_limits_struct():
     bone_limit_x_min = 0.0
@@ -8,6 +10,7 @@ class bone_limits_struct():
     bone_limit_z_min = 0.0
     bone_limit_z_max = 0.0
 
+    
     def get_x_range(self):
         return abs(self.bone_limit_x_max - self.bone_limit_x_min)
 
@@ -17,14 +20,24 @@ class bone_limits_struct():
     def get_z_range(self):
         return abs(self.bone_limit_z_max - self.bone_limit_z_min)
 
+    # For getting the preferred angle, it seems like we want the largest angle, not the biggest range
+    def get_x_max_angle(self):
+        return max(abs(self.bone_limit_x_max), abs(self.bone_limit_x_min))
+
+    def get_y_max_angle(self):
+        return max(abs(self.bone_limit_y_max), abs(self.bone_limit_y_min))
+
+    def get_z_max_angle(self):
+        return max(abs(self.bone_limit_z_max), abs(self.bone_limit_z_min))
+
     def get_preferred_angle(self):
-        if(self.get_x_range() > self.get_y_range() and self.get_x_range() > self.get_y_range()):
+        if(self.get_x_max_angle() > self.get_y_max_angle() and self.get_x_max_angle() > self.get_z_max_angle()):
             if abs(self.bone_limit_x_min) > abs(self.bone_limit_x_max): return self.bone_limit_x_min, 0.0, 0.0
             return self.bone_limit_x_max, 0.0, 0.0
-        if(self.get_y_range() > self.get_x_range() and self.get_y_range() > self.get_z_range()):
+        if(self.get_y_max_angle() > self.get_x_max_angle() and self.get_y_max_angle() > self.get_z_max_angle()):
             if abs(self.bone_limit_y_min) > abs(self.bone_limit_y_max): return 0.0, self.bone_limit_y_min, 0.0
             return 0.0, self.bone_limit_y_max, 0.0
-        if(self.get_z_range() > self.get_x_range() and self.get_z_range() > self.get_x_range()):
+        if(self.get_z_max_angle() > self.get_x_max_angle() and self.get_z_max_angle() > self.get_y_max_angle()):
             if abs(self.bone_limit_z_min) > abs(self.bone_limit_z_max): return 0.0, 0.0, self.bone_limit_z_min
             return 0.0, 0.0, self.bone_limit_z_max
 
@@ -67,6 +80,19 @@ def get_bone_limits(dtu_json, skeletal_mesh_force_front_x):
         bone_limits_dict[bone_limit_name] = bone_limits_data
 
     return bone_limits_dict
+
+def get_bone_limits_from_skeletalmesh(skeletal_mesh):
+    asset_import_data = skeletal_mesh.get_editor_property('asset_import_data')
+    fbx_path = asset_import_data.get_first_filename()
+    dtu_file = fbx_path.rsplit('.', 1)[0] + '.dtu'
+    dtu_file = dtu_file.replace('/UpdatedFBX/', '/')
+    print(dtu_file)
+    if os.path.exists(dtu_file):
+        dtu_data = json.load(open(dtu_file))
+        force_front_x = asset_import_data.get_editor_property('force_front_x_axis')
+        bone_limits = get_bone_limits(dtu_data, force_front_x)
+        return bone_limits
+    return []
 
 def get_character_type(dtu_json):
     asset_id = dtu_json['Asset Id']

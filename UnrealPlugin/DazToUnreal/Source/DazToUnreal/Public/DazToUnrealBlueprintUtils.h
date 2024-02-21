@@ -18,6 +18,10 @@ class UDazToUnrealBlueprintUtils : public UBlueprintFunctionLibrary
 		UFUNCTION(BlueprintCallable, Category = "DazToUnrealUtils")
 		static FName GetChildBone(const class USkeleton* Skeleton, FName ParentBone);
 
+		// Find the next bone in a chain.  Used for IKRetargeter generation
+		UFUNCTION(BlueprintCallable, Category = "DazToUnrealUtils")
+		static FName GetNextBone(const class USkeleton* Skeleton, FName ParentBone, FName EndBone);
+
 		// Find the joint bone.  This is assumed to be the bone between two bones
 		UFUNCTION(BlueprintCallable, Category = "DazToUnrealUtils")
 		static FName GetJointBone(const class USkeleton* Skeleton, FName StartBone, FName EndBone);
