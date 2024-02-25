@@ -86,6 +86,28 @@ DzUnrealDialog::DzUnrealDialog(QWidget *parent) :
 	// add new asset type to assetTypeCombo widget ("MLDeformer")
 	assetTypeCombo->addItem("MLDeformer");
 
+
+
+	// Common Settings
+	commonSettingsGroupBox = new QGroupBox("Common Settings", this);
+	QFormLayout* commonSettingsLayout = new QFormLayout();
+	commonSettingsGroupBox->setLayout(commonSettingsLayout);
+
+	skeletalMeshFixTwistBonesCheckBox = new QCheckBox("", commonSettingsGroupBox);
+	skeletalMeshFixTwistBonesCheckBox->setChecked(false);
+	skeletalMeshFixTwistBonesCheckBox->setWhatsThis("If checked, twist bones will be taken out of line.");
+	commonSettingsLayout->addRow("Fix Twist Bones", skeletalMeshFixTwistBonesCheckBox);
+
+	skeletalMeshFaceCharacterRightCheckBox = new QCheckBox("", commonSettingsGroupBox);
+	skeletalMeshFaceCharacterRightCheckBox->setChecked(false);
+	skeletalMeshFaceCharacterRightCheckBox->setWhatsThis("If checked, character will be imported facing right (X Forward) in Unreal.");
+	commonSettingsLayout->addRow("Import Facing Right", skeletalMeshFaceCharacterRightCheckBox);
+
+	commonSettingsGroupBox->setVisible(true);
+
+	// Add common settings to the mainLayout as a new row without header
+	mainLayout->addRow(commonSettingsGroupBox);
+
 	// MLDeformer Settings
 	mlDeformerSettingsGroupBox = new QGroupBox("MLDeformer Settings", this);
 	QFormLayout* mlDeformerSettingsLayout = new QFormLayout();
@@ -117,16 +139,6 @@ DzUnrealDialog::DzUnrealDialog(QWidget *parent) :
 	skeletalMeshUniqueSkeletonPerCharacterCheckBox->setChecked(false);
 	skeletalMeshUniqueSkeletonPerCharacterCheckBox->setWhatsThis("If checked, a new skeleton will be created for this character instead of sharing a skeleton with related characters.");
 	skeletalMeshSettingsLayout->addRow("Unique Skeleton", skeletalMeshUniqueSkeletonPerCharacterCheckBox);
-
-	skeletalMeshFixTwistBonesCheckBox = new QCheckBox("", skeletalMeshSettingsGroupBox);
-	skeletalMeshFixTwistBonesCheckBox->setChecked(false);
-	skeletalMeshFixTwistBonesCheckBox->setWhatsThis("If checked, twist bones will be taken out of line.");
-	skeletalMeshSettingsLayout->addRow("Fix Twist Bones", skeletalMeshFixTwistBonesCheckBox);
-
-	skeletalMeshFaceCharacterRightCheckBox = new QCheckBox("", skeletalMeshSettingsGroupBox);
-	skeletalMeshFaceCharacterRightCheckBox->setChecked(false);
-	skeletalMeshFaceCharacterRightCheckBox->setWhatsThis("If checked, character will be imported facing right (X Forward) in Unreal.");
-	skeletalMeshSettingsLayout->addRow("Import Facing Right", skeletalMeshFaceCharacterRightCheckBox);
 
 	mlDeformerSettingsGroupBox->setVisible(false);
 
@@ -515,6 +527,7 @@ void DzUnrealDialog::HandleAssetTypeComboChange(const QString& assetType)
 {
 	mlDeformerSettingsGroupBox->setVisible(assetType == "MLDeformer");
 	skeletalMeshSettingsGroupBox->setVisible(assetType == "Skeletal Mesh");
+	commonSettingsGroupBox->setVisible(assetType == "Skeletal Mesh" || assetType == "MLDeformer" || assetType == "Animation" || assetType == "Pose");
 	DzBridgeDialog::HandleAssetTypeComboChange(assetType);
 }
 

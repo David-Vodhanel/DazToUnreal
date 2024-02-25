@@ -215,6 +215,7 @@ void DzUnrealAction::writeConfiguration()
 
 	 if (m_sAssetType == "Animation")
 	 {
+		 writer.addMember("FixTwistBones", DazToUnrealDialog->getFixTwistBones());
 		 writer.addMember("FaceCharacterRight", DazToUnrealDialog->getFaceCharacterRight());
 	 }
 
@@ -249,6 +250,8 @@ void DzUnrealAction::writeConfiguration()
 
 	 if (m_sAssetType == "Pose")
 	 {
+		 writer.addMember("FixTwistBones", DazToUnrealDialog->getFixTwistBones());
+		 writer.addMember("FaceCharacterRight", DazToUnrealDialog->getFaceCharacterRight());
 		writeAllPoses(writer);
 	 }
 
@@ -259,6 +262,8 @@ void DzUnrealAction::writeConfiguration()
 
 	 if (m_sAssetType == "MLDeformer")
 	 {
+		 writer.addMember("FixTwistBones", DazToUnrealDialog->getFixTwistBones());
+		 writer.addMember("FaceCharacterRight", DazToUnrealDialog->getFaceCharacterRight());
 		 writeMLDeformerData(writer);
 	 }
 
@@ -369,6 +374,9 @@ void DzUnrealAction::exportNode(DzNode* Node)
 	if (Node == nullptr)
 		return;
 
+	DzUnrealDialog* DazToUnrealDialog = qobject_cast<DzUnrealDialog*>(m_bridgeDialog);
+	m_bFixTwistBones = DazToUnrealDialog->getFixTwistBones();
+
 	dzScene->selectAllNodes(false);
 	dzScene->setPrimarySelection(Node);
 
@@ -388,7 +396,6 @@ void DzUnrealAction::exportNode(DzNode* Node)
 	}
 
 	DzBridgeAction::exportNode(Node);
-
 }
 
 void DzUnrealAction::exportAnimation()

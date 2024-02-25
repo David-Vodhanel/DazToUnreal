@@ -76,6 +76,9 @@ protected:
 	// SkeletalMesh settings
 	QGroupBox* skeletalMeshSettingsGroupBox = nullptr;
 	QCheckBox* skeletalMeshUniqueSkeletonPerCharacterCheckBox = nullptr;
+
+	// Common settings
+	QGroupBox* commonSettingsGroupBox = nullptr;
 	QCheckBox* skeletalMeshFixTwistBonesCheckBox = nullptr;
 	QCheckBox* skeletalMeshFaceCharacterRightCheckBox = nullptr;
 
