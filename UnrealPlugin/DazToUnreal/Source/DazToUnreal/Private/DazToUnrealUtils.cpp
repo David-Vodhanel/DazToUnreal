@@ -180,6 +180,7 @@ FSoftObjectPath FDazToUnrealUtils::GetSkeletonForImport(const DazToUnrealImportD
 
 bool FDazToUnrealUtils::IsSkeletonUsed(FSoftObjectPath SkeletonPath)
 {
+#if ENGINE_MAJOR_VERSION > 4
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
 	IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
 
@@ -199,4 +200,7 @@ bool FDazToUnrealUtils::IsSkeletonUsed(FSoftObjectPath SkeletonPath)
 		}
 	}
 	return false;
+#else
+	return true;
+#endif
 }
