@@ -14,18 +14,6 @@ DECLARE_LOG_CATEGORY_EXTERN(LogDazToUnreal, Log, All);
 class FToolBarBuilder;
 class FMenuBuilder;
 struct FDUFTextureProperty;
-//class FbxNode;
-
-
-enum DazAssetType
-{
-	SkeletalMesh,
-	StaticMesh,
-	Animation,
-	Environment,
-	Pose,
-	MLDeformer
-};
 
 struct TextureLookupInfo
 {
@@ -33,18 +21,6 @@ struct TextureLookupInfo
 	bool bIsCutOut;
 };
 
-struct DazToUnrealImportData
-{
-	FString SourcePath;
-	FString ImportLocation;
-	DazAssetType AssetType;
-	DazCharacterType CharacterType;
-	FString CharacterTypeName;
-	bool bSetPostProcessAnimation = true;
-	bool bCreateUniqueSkeleton = false;
-	bool bFixTwistBones = false;
-	bool bFaceCharacterRight = false;
-};
 
 class FDazToUnrealModule : public IModuleInterface//, TSharedFromThis<FDazToUnrealModule>
 {

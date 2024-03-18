@@ -1800,56 +1800,8 @@ UObject* FDazToUnrealModule::ImportFBXAsset(const DazToUnrealImportData& DazImpo
 	 UFbxFactory* FbxFactory = NewObject<UFbxFactory>(UFbxFactory::StaticClass());
 	 FbxFactory->AddToRoot();
 
-	 USkeleton* Skeleton = nullptr;
-	 FSoftObjectPath SkeletonPath;
-	 if (!DazImportData.bCreateUniqueSkeleton)
-	 {
-		 if (DazImportData.bFixTwistBones)
-		 {
-			 if (CachedSettings->SkeletonsWithTwistFix.Contains(DazImportData.CharacterTypeName))
-			 {
-				 Skeleton = (USkeleton*)CachedSettings->SkeletonsWithTwistFix[DazImportData.CharacterTypeName].TryLoad();
-				 if (Skeleton)
-				 {
-					 SkeletonPath = CachedSettings->SkeletonsWithTwistFix[DazImportData.CharacterTypeName];
-				 }
-				 else
-				 {
-					 CachedSettings->SkeletonsWithTwistFix.Remove(DazImportData.CharacterTypeName);
-				 } 
-			 }
-		 }
-		 else
-		 {
-			 if (DazImportData.CharacterType == DazCharacterType::Genesis1)
-			 {
-				 Skeleton = (USkeleton*)CachedSettings->Genesis1Skeleton.TryLoad();
-				 SkeletonPath = CachedSettings->Genesis1Skeleton;
-			 }
-			 if (DazImportData.CharacterType == DazCharacterType::Genesis3Male || DazImportData.CharacterType == DazCharacterType::Genesis3Female)
-			 {
-				 Skeleton = (USkeleton*)CachedSettings->Genesis3Skeleton.TryLoad();
-				 SkeletonPath = CachedSettings->Genesis3Skeleton;
-			 }
-			 if (DazImportData.CharacterType == DazCharacterType::Genesis8Male || DazImportData.CharacterType == DazCharacterType::Genesis8Female)
-			 {
-				 Skeleton = (USkeleton*)CachedSettings->Genesis8Skeleton.TryLoad();
-				 SkeletonPath = CachedSettings->Genesis8Skeleton;
-			 }
-			 if (DazImportData.CharacterType == DazCharacterType::Unknown && CachedSettings->OtherSkeletons.Contains(DazImportData.CharacterTypeName))
-			 {
-				 Skeleton = (USkeleton*)CachedSettings->OtherSkeletons[DazImportData.CharacterTypeName].TryLoad();
-				 if (Skeleton)
-				 {
-					 SkeletonPath = CachedSettings->OtherSkeletons[DazImportData.CharacterTypeName];
-				 }
-				 else
-				 {
-					 CachedSettings->OtherSkeletons.Remove(DazImportData.CharacterTypeName);
-				 }
-			 }
-		 }
-	 }
+	 FSoftObjectPath SkeletonPath = FDazToUnrealUtils::GetSkeletonForImport(DazImportData);
+	 USkeleton* Skeleton = Cast<USkeleton>(SkeletonPath.TryLoad());
 
 	 UFbxImportUI* ImportUI = NewObject<UFbxImportUI>();
 	 FbxFactory->SetDetectImportTypeOnImport(false);
