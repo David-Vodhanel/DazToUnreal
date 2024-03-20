@@ -59,6 +59,7 @@
 #include "ToolMenuSection.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "ContentBrowserMenuContexts.h"
+#include "Animation/PoseAsset.h"
 
 #if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION > 0
 #include "LevelEditorSubsystem.h"
