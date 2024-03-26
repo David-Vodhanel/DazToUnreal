@@ -173,6 +173,8 @@ void FDazToUnrealFbx::ParentAdditionalSkeletalMeshes(FbxScene* Scene)
 // Takes twist bones "out of line".  G3 and G8 have twist bones between some joints like thigh and knee.
 void FDazToUnrealFbx::FixTwistBones(FbxNode* Node)
 {
+	if (Node == nullptr) return;
+
 	// Process Children first since they'll get reparented
 	for (int ChildIndex = Node->GetChildCount() - 1; ChildIndex >= 0; --ChildIndex)
 	{
@@ -212,4 +214,22 @@ void FDazToUnrealFbx::RemoveNodeAndReparent(FbxNode* NodeToRemove)
 		}
 		ParentNode->RemoveChild(NodeToRemove);
 	}
+}
+
+void FDazToUnrealFbx::ConvertToEpicSkeleton(FbxScene* Scene)
+{
+	TArray<FString> NodesToRemove;
+	TMap<FString, FString> NodesToAdd;
+	TMap<FString, FString> NodesToRename;
+
+	NodesToRemove.Add(TEXT("pelvis"));
+
+	// Add this under that
+	NodesToAdd.Add(TEXT("spine_04"), TEXT("spine3"));
+
+	NodesToRename.Add(TEXT("hip"), TEXT("pelvis"));
+
+
+
+
 }

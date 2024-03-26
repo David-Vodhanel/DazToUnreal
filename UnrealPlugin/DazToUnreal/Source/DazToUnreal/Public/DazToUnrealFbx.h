@@ -67,6 +67,7 @@ public:
 	static void ParentAdditionalSkeletalMeshes(FbxScene* Scene);
 	static void RemoveNodeAndReparent(FbxNode* NodeToRemove);
 	static void FixTwistBones(FbxNode* RootNode);
+	static void ConvertToEpicSkeleton(FbxScene* Scene);
 private:
 	static void RenameDuplicateBones(FbxNode* RootNode, TMap<FString, int>& ExistingBones);
 };
