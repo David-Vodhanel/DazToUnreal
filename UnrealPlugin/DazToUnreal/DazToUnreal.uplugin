@@ -13,6 +13,7 @@
 	"EngineVersion": "5.4.0",
 	"CanContainContent": true,
 	"Installed": true,
+	"ForceRebuild": 1,
 	"Modules": [
 		{
 			"Name": "DazToUnreal",
