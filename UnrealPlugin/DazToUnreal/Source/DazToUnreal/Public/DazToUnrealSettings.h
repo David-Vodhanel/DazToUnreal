@@ -75,6 +75,13 @@ public:
 
 		DefaultSkinDiffuseSubsurfaceColorWeight = 0.5f;
 		DefaultEyeMoistureOpacity = 0.01f;
+
+		CharacterTypeMapping.Add(TEXT("Genesis3Male"), TEXT("Genesis3"));
+		CharacterTypeMapping.Add(TEXT("Genesis3Female"), TEXT("Genesis3"));
+		CharacterTypeMapping.Add(TEXT("Genesis8Male"), TEXT("Genesis8"));
+		CharacterTypeMapping.Add(TEXT("Genesis8Female"), TEXT("Genesis8"));
+		CharacterTypeMapping.Add(TEXT("Genesis8_1Male"), TEXT("Genesis8"));
+		CharacterTypeMapping.Add(TEXT("Genesis8_1Female"), TEXT("Genesis8"));
 	}
 
 	virtual FName GetCategoryName() const { return FName(TEXT("Plugins")); }
@@ -154,6 +161,10 @@ public:
 	/** A mapping of default post process animations for different skeletons */
 	UPROPERTY(config, EditAnywhere, Category = SkeletonSettings)
 		TMap<FSoftObjectPath, FSoftClassPath> SkeletonPostProcessAnimation;
+
+	/** Used to make characters that are the same generation share a skeleton */
+	UPROPERTY(config, EditAnywhere, Category = SkeletonSettings)
+	TMap<FString, FString> CharacterTypeMapping;
 
 	/** Add ik bones to the skeleton */
 	UPROPERTY(config, EditAnywhere, Category = SkeletonSettings)

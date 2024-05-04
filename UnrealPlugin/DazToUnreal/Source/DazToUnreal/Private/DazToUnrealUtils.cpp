@@ -118,6 +118,13 @@ FSoftObjectPath FDazToUnrealUtils::GetSkeletonForImport(const DazToUnrealImportD
 	{
 		if (DazImportData.bFixTwistBones)
 		{
+			// Some character types share a skeleton.  Get the mapped name.
+			FString MappedSkeletonName = DazImportData.CharacterTypeName;
+			if (CachedSettings->CharacterTypeMapping.Contains(DazImportData.CharacterTypeName))
+			{
+				MappedSkeletonName = CachedSettings->CharacterTypeMapping[DazImportData.CharacterTypeName];
+			}
+
 			if (CachedSettings->SkeletonsWithTwistFix.Contains(DazImportData.CharacterTypeName))
 			{
 				Skeleton = (USkeleton*)CachedSettings->SkeletonsWithTwistFix[DazImportData.CharacterTypeName].TryLoad();
@@ -133,43 +140,55 @@ FSoftObjectPath FDazToUnrealUtils::GetSkeletonForImport(const DazToUnrealImportD
 		}
 		else
 		{
-			if (DazImportData.CharacterType == DazCharacterType::Genesis1)
+			// Some character types share a skeleton.  Get the mapped name.
+			FString MappedSkeletonName = DazImportData.CharacterTypeName;
+			if (CachedSettings->CharacterTypeMapping.Contains(DazImportData.CharacterTypeName))
 			{
-				Skeleton = (USkeleton*)CachedSettings->Genesis1Skeleton.TryLoad();
-				SkeletonPath = CachedSettings->Genesis1Skeleton;
-			}
-			if (DazImportData.CharacterType == DazCharacterType::Genesis3Male || DazImportData.CharacterType == DazCharacterType::Genesis3Female)
-			{
-				Skeleton = (USkeleton*)CachedSettings->Genesis3Skeleton.TryLoad();
-				SkeletonPath = CachedSettings->Genesis3Skeleton;
-			}
-			if (DazImportData.CharacterType == DazCharacterType::Genesis8Male || DazImportData.CharacterType == DazCharacterType::Genesis8Female)
-			{
-				Skeleton = (USkeleton*)CachedSettings->Genesis8Skeleton.TryLoad();
-				SkeletonPath = CachedSettings->Genesis8Skeleton;
+				MappedSkeletonName = CachedSettings->CharacterTypeMapping[DazImportData.CharacterTypeName];
 			}
 
-			// Only return one of the original skeletons if it's already used in the project.
+			// Look for an existing skeleton for the project.
+			if (CachedSettings->OtherSkeletons.Contains(MappedSkeletonName))
+			{
+				Skeleton = (USkeleton*)CachedSettings->OtherSkeletons[MappedSkeletonName].TryLoad();
+				if (Skeleton)
+				{
+					SkeletonPath = CachedSettings->OtherSkeletons[MappedSkeletonName];
+				}
+				else
+				{
+					CachedSettings->OtherSkeletons.Remove(MappedSkeletonName);
+				}
+			}
+			else
+			{
+				// Check in the plugin for a skeleton (going away soon)
+				if (DazImportData.CharacterType == DazCharacterType::Genesis1)
+				{
+					Skeleton = (USkeleton*)CachedSettings->Genesis1Skeleton.TryLoad();
+					SkeletonPath = CachedSettings->Genesis1Skeleton;
+				}
+				if (DazImportData.CharacterType == DazCharacterType::Genesis3Male || DazImportData.CharacterType == DazCharacterType::Genesis3Female)
+				{
+					Skeleton = (USkeleton*)CachedSettings->Genesis3Skeleton.TryLoad();
+					SkeletonPath = CachedSettings->Genesis3Skeleton;
+				}
+				if (DazImportData.CharacterType == DazCharacterType::Genesis8Male || DazImportData.CharacterType == DazCharacterType::Genesis8Female)
+				{
+					Skeleton = (USkeleton*)CachedSettings->Genesis8Skeleton.TryLoad();
+					SkeletonPath = CachedSettings->Genesis8Skeleton;
+				}
+			}
+
+
+			// Only return one of the plugin skeletons if it's already used in the project.
 			// We're moving away from using skeletons that are included with the plugin
-			if (Skeleton)
+			if (Skeleton && SkeletonPath.ToString().StartsWith(TEXT("/DazToUnreal/")))
 			{
 				if (!IsSkeletonUsed(SkeletonPath))
 				{
 					Skeleton = nullptr;
 					SkeletonPath.Reset();
-				}
-			}
-
-			if (!Skeleton && CachedSettings->OtherSkeletons.Contains(DazImportData.CharacterTypeName))
-			{
-				Skeleton = (USkeleton*)CachedSettings->OtherSkeletons[DazImportData.CharacterTypeName].TryLoad();
-				if (Skeleton)
-				{
-					SkeletonPath = CachedSettings->OtherSkeletons[DazImportData.CharacterTypeName];
-				}
-				else
-				{
-					CachedSettings->OtherSkeletons.Remove(DazImportData.CharacterTypeName);
 				}
 			}
 		}

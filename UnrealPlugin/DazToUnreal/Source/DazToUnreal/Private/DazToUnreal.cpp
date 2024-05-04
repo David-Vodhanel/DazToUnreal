@@ -1934,20 +1934,27 @@ UObject* FDazToUnrealModule::ImportFBXAsset(const DazToUnrealImportData& DazImpo
 						 Skeleton->SetBoneTranslationRetargetingMode(HeadBoneIndex, EBoneTranslationRetargetingMode::AnimationRelative, true);
 						 Skeleton->SetBoneTranslationRetargetingMode(HeadBoneIndex, EBoneTranslationRetargetingMode::Skeleton, false);
 					 }
+
+					 // Some character types share a skeleton.  Get the mapped name.
+					 FString MappedSkeletonName = DazImportData.CharacterTypeName;
+					 if (CachedSettings->CharacterTypeMapping.Contains(DazImportData.CharacterTypeName))
+					 {
+						 MappedSkeletonName = CachedSettings->CharacterTypeMapping[DazImportData.CharacterTypeName];
+					 }
 					 
 					 // Add this skeleton as the default for this character type
 					 if (DazImportData.bFixTwistBones)
 					 {
-						 if (!CachedSettings->SkeletonsWithTwistFix.Contains(DazImportData.CharacterTypeName))
+						 if (!CachedSettings->SkeletonsWithTwistFix.Contains(MappedSkeletonName))
 						 {
-							 CachedSettings->SkeletonsWithTwistFix.Add(DazImportData.CharacterTypeName, Skeleton);
+							 CachedSettings->SkeletonsWithTwistFix.Add(MappedSkeletonName, Skeleton);
 						 }
 					 }
 					 else
 					 {
-						 if (!CachedSettings->OtherSkeletons.Contains(DazImportData.CharacterTypeName))
+						 if (!CachedSettings->OtherSkeletons.Contains(MappedSkeletonName))
 						 {
-							 CachedSettings->OtherSkeletons.Add(DazImportData.CharacterTypeName, Skeleton);
+							 CachedSettings->OtherSkeletons.Add(MappedSkeletonName, Skeleton);
 						 }
 					 }
 					 CachedSettings->SaveConfig(CPF_Config, *CachedSettings->GetDefaultConfigFilename());
