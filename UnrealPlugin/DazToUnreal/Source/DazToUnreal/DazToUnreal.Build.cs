@@ -97,7 +97,9 @@ public class DazToUnreal : ModuleRules
 		PluginDescriptor Descriptor = PluginDescriptor.FromFile(EpicGames.Core.FileReference.FromString(PluginFilePath));
 		foreach(var RequestedPlugin in Descriptor.Plugins)
 		{
-			if(RequestedPlugin.Name == "MLDeformerFramework" && RequestedPlugin.bOptional == true)
+			if((RequestedPlugin.Name == "MLDeformerFramework" || 
+				RequestedPlugin.Name == "NeuralMorphModel") && 
+				RequestedPlugin.bOptional == true)
 			{
 				RequestedPlugin.bOptional = false;
 				try
