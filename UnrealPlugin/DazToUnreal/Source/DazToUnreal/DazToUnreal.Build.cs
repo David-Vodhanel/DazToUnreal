@@ -79,6 +79,9 @@ public class DazToUnreal : ModuleRules
 #if UE_5_0_OR_LATER
 		VersionSpecificFilterIni = Path.Combine(PluginDirectory, "Resources", "UE5_FilterPlugin.ini");
 #endif
+#if UE_5_4_OR_LATER
+		VersionSpecificFilterIni = Path.Combine(PluginDirectory, "Resources", "UE5_4_FilterPlugin.ini");
+#endif
 		string TargetFilterIni = Path.Combine(PluginDirectory, "Config", "FilterPlugin.ini");
 		if (File.Exists(VersionSpecificFilterIni))
 		{
