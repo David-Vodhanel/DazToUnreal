@@ -19,7 +19,7 @@
 			"Name": "DazToUnreal",
 			"Type": "Editor",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [
+			"PlatformAllowList": [
 				"Win64"
 			]
 		}
@@ -65,6 +65,11 @@
 		},
 		{
 			"Name": "ControlRig",
+			"Enabled": true,
+			"Optional": true
+		},
+		{
+			"Name": "LiveLinkControlRig",
 			"Enabled": true,
 			"Optional": true
 		}
