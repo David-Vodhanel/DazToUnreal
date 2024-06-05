@@ -1,6 +1,7 @@
 #include "DazToUnrealUtils.h"
 #include "GenericPlatform/GenericPlatformFile.h"
 #include "Misc/Paths.h"
+#include "UObject/SoftObjectPath.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 
 #include "Engine/SkeletalMesh.h"
