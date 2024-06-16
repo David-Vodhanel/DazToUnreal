@@ -126,16 +126,16 @@ FSoftObjectPath FDazToUnrealUtils::GetSkeletonForImport(const DazToUnrealImportD
 				MappedSkeletonName = CachedSettings->CharacterTypeMapping[DazImportData.CharacterTypeName];
 			}
 
-			if (CachedSettings->SkeletonsWithTwistFix.Contains(DazImportData.CharacterTypeName))
+			if (CachedSettings->SkeletonsWithTwistFix.Contains(MappedSkeletonName))
 			{
-				Skeleton = (USkeleton*)CachedSettings->SkeletonsWithTwistFix[DazImportData.CharacterTypeName].TryLoad();
+				Skeleton = (USkeleton*)CachedSettings->SkeletonsWithTwistFix[MappedSkeletonName].TryLoad();
 				if (Skeleton)
 				{
-					SkeletonPath = CachedSettings->SkeletonsWithTwistFix[DazImportData.CharacterTypeName];
+					SkeletonPath = CachedSettings->SkeletonsWithTwistFix[MappedSkeletonName];
 				}
 				else
 				{
-					CachedSettings->SkeletonsWithTwistFix.Remove(DazImportData.CharacterTypeName);
+					CachedSettings->SkeletonsWithTwistFix.Remove(MappedSkeletonName);
 				}
 			}
 		}
