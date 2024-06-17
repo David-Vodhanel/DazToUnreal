@@ -36,6 +36,10 @@ public:
 		return mlDeformerIncludeToesCheckBox ? mlDeformerIncludeToesCheckBox->isChecked() : false;
 	}
 
+	bool getMLDeformerIncludeFace() {
+		return mlDeformerIncludeFaceCheckBox ? mlDeformerIncludeFaceCheckBox->isChecked() : false;
+	}
+
 	// SkeletalMesh getters
 	bool getUniqueSkeletonPerCharacter() { 
 		return skeletalMeshUniqueSkeletonPerCharacterCheckBox ? skeletalMeshUniqueSkeletonPerCharacterCheckBox->isChecked() : false;
@@ -72,6 +76,7 @@ protected:
 	QLineEdit* mlDeformerPoseCountEdit = nullptr;
 	QCheckBox* mlDeformerIncludeFingersCheckBox = nullptr;
 	QCheckBox* mlDeformerIncludeToesCheckBox = nullptr;
+	QCheckBox* mlDeformerIncludeFaceCheckBox = nullptr;
 
 	// SkeletalMesh settings
 	QGroupBox* skeletalMeshSettingsGroupBox = nullptr;

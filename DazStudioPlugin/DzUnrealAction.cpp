@@ -376,6 +376,7 @@ void DzUnrealAction::exportNode(DzNode* Node)
 
 	DzUnrealDialog* DazToUnrealDialog = qobject_cast<DzUnrealDialog*>(m_bridgeDialog);
 	m_bFixTwistBones = DazToUnrealDialog->getFixTwistBones();
+	m_bMLDeformerExportFace = DazToUnrealDialog->getMLDeformerIncludeFace();
 
 	dzScene->selectAllNodes(false);
 	dzScene->setPrimarySelection(Node);
@@ -389,6 +390,11 @@ void DzUnrealAction::exportNode(DzNode* Node)
 			unrealBridgeDialog->getMLDeformerPoseCountEdit()->text().toInt(),
 			unrealBridgeDialog->getMLDeformerIncludeFingers(),
 			unrealBridgeDialog->getMLDeformerIncludeToes());
+		if (m_bEnableMorphs)
+		{
+			MLDeformer::GenerateMorphs(Node, m_mMorphNameToLabel.keys());
+			m_bAnimationExportActiveCurves = true;
+		}
 		exportAnimation();
 		MLDeformer::ExportTrainingData(Node, m_sDestinationPath + m_sExportFilename + ".abc");
 		writeConfiguration();

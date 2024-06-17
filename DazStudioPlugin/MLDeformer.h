@@ -12,6 +12,7 @@ class MLDeformer
 {
 public:
 	static void GeneratePoses(DzNode* Node, int PoseCount, bool IncludeFingers, bool IncludeToes);
+	static void GenerateMorphs(DzNode* Node, QList<QString> MorphList);
 	static void ExportTrainingData(DzNode* Node, QString FileName);
 
 private:

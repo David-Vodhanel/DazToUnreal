@@ -15,6 +15,7 @@
 #include <dzfloatproperty.h>
 #include <dzintproperty.h>
 #include <dzprogress.h>
+#include <dzmorph.h>
 
 void MLDeformer::GeneratePoses(DzNode* Node, int PoseCount, bool IncludeFingers, bool IncludeToes)
 {
@@ -72,6 +73,82 @@ void MLDeformer::GeneratePoses(DzNode* Node, int PoseCount, bool IncludeFingers,
         }
     }
     exportProgress.finish();
+}
+
+void MLDeformer::GenerateMorphs(DzNode* Node, QList<QString> MorphList)
+{
+    DzTime EndTime = dzScene->getPlayRange().getEnd();
+    DzTime MorphStartFrame = EndTime + dzScene->getTimeStep();
+    EndTime = EndTime + MorphList.count() * dzScene->getTimeStep();
+    dzScene->setAnimRange(DzTimeRange(0, EndTime));
+    dzScene->setPlayRange(DzTimeRange(0, EndTime));
+
+    QMap<QString, DzNumericProperty*> PropertyMap;
+
+    DzObject* Object = Node->getObject();
+    if (Object)
+    {
+        for (int index = 0; index < Object->getNumModifiers(); index++)
+        {
+            DzModifier* modifier = Object->getModifier(index);
+            QString modName = modifier->getName();
+
+                QString modLabel = modifier->getLabel();
+
+                
+                DzMorph* mod = qobject_cast<DzMorph*>(modifier);
+                if (mod)
+                {
+                    for (int propindex = 0; propindex < modifier->getNumProperties(); propindex++)
+                    {
+                        DzProperty* property = modifier->getProperty(propindex);
+                        DzNumericProperty* numericProp = qobject_cast<DzNumericProperty*>(property);
+                        if (numericProp)
+                        {
+                            if (MorphList.contains(modLabel))
+                            {
+                                qDebug() << modLabel << "  " << modName;
+                                PropertyMap.insert(modLabel, numericProp);
+                            }
+                        }
+                    }
+                }
+            
+        }
+    }
+
+    DzTime MorphFrame = MorphStartFrame;
+    // Set all the morphs to 0 for the first morph frameframe
+    for (QString MorphNameToZero : MorphList)
+    {
+        DzNumericProperty* Property = PropertyMap[MorphNameToZero];
+        if (Property)
+        {
+            Property->setDoubleValue(MorphFrame, 0.0f);
+        }
+    }
+
+    for (QString MorphName : MorphList)
+    {
+        // Set all the morphs to 0 for the frame, one will be set to 1 after
+        for (QString MorphNameToZero : MorphList)
+        {
+            DzNumericProperty* Property = PropertyMap[MorphNameToZero];
+            if (Property)
+            {
+                Property->setDoubleValue(MorphFrame, 0.0f);
+            }
+        }
+
+        // Set the morph for this frame to 1
+        DzNumericProperty* Property = PropertyMap[MorphName];
+        if (Property)
+        {
+            Property->setDoubleValue(MorphFrame, 1.0f);
+        }
+
+        MorphFrame += dzScene->getTimeStep();
+    }
 }
 
 float MLDeformer::RandomInRange(float Min, float Max)

@@ -120,12 +120,17 @@ DzUnrealDialog::DzUnrealDialog(QWidget *parent) :
 	mlDeformerIncludeFingersCheckBox = new QCheckBox("", mlDeformerSettingsGroupBox);
 	mlDeformerIncludeFingersCheckBox->setChecked(false);
 	mlDeformerIncludeFingersCheckBox->setWhatsThis("If checked, finger poses will be added.");
-	mlDeformerSettingsLayout->addRow("Include Fingers", mlDeformerIncludeFingersCheckBox);
+	mlDeformerSettingsLayout->addRow("Include Finger Poses", mlDeformerIncludeFingersCheckBox);
 
 	mlDeformerIncludeToesCheckBox = new QCheckBox("", mlDeformerSettingsGroupBox);
 	mlDeformerIncludeToesCheckBox->setChecked(false);
 	mlDeformerIncludeToesCheckBox->setWhatsThis("If checked, toe poses will be added.");
-	mlDeformerSettingsLayout->addRow("Include Toes", mlDeformerIncludeToesCheckBox);
+	mlDeformerSettingsLayout->addRow("Include Toe Poses", mlDeformerIncludeToesCheckBox);
+
+	mlDeformerIncludeFaceCheckBox = new QCheckBox("", mlDeformerSettingsGroupBox);
+	mlDeformerIncludeFaceCheckBox->setChecked(false);
+	mlDeformerIncludeFaceCheckBox->setWhatsThis("If checked, face bones will be added to the animation.");
+	mlDeformerSettingsLayout->addRow("Include Face Bones", mlDeformerIncludeFaceCheckBox);
 
 	// Add ML Deformer settings to the mainLayout as a new row without header
 	mainLayout->addRow(mlDeformerSettingsGroupBox);
@@ -231,6 +236,10 @@ bool DzUnrealDialog::loadSavedSettings()
 	{
 		mlDeformerIncludeToesCheckBox->setChecked(settings->value("MLDeformerIncludeToes").toBool());
 	}
+	if (!settings->value("MLDeformerIncludeFace").isNull())
+	{
+		mlDeformerIncludeFaceCheckBox->setChecked(settings->value("MLDeformerIncludeFace").toBool());
+	}
 
 	// SkeletalMesh settings
 	if (!settings->value("SkeletalMeshUniqueSkeletonPerCharacter").isNull())
@@ -261,7 +270,7 @@ void DzUnrealDialog::saveSettings()
 	settings->setValue("MLDeformerPoseCount", mlDeformerPoseCountEdit->text().toInt());
 	settings->setValue("MLDeformerIncludeFingers", mlDeformerIncludeFingersCheckBox->isChecked());
 	settings->setValue("MLDeformerIncludeToes", mlDeformerIncludeToesCheckBox->isChecked());
-
+	settings->setValue("MLDeformerIncludeFace", mlDeformerIncludeFaceCheckBox->isChecked());
 
 	// SkeletalMesh settings
 	settings->setValue("SkeletalMeshUniqueSkeletonPerCharacter", skeletalMeshUniqueSkeletonPerCharacterCheckBox->isChecked());
