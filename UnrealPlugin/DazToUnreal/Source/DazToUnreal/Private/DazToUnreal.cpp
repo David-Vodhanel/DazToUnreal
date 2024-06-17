@@ -60,6 +60,7 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "ContentBrowserMenuContexts.h"
 #include "Animation/PoseAsset.h"
+#include "Misc/EngineVersionComparison.h"
 
 #if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION > 0
 #include "LevelEditorSubsystem.h"
@@ -1839,7 +1840,10 @@ UObject* FDazToUnrealModule::ImportFBXAsset(const DazToUnrealImportData& DazImpo
 		  FbxFactory->ImportUI->bImportTextures = false;
 		  FbxFactory->ImportUI->bImportAnimations = true;
 		  FbxFactory->ImportUI->AnimSequenceImportData->bConvertScene = true;
-		  FbxFactory->ImportUI->AnimSequenceImportData->bForceFrontXAxis = DazImportData.bFaceCharacterRight;;
+		  FbxFactory->ImportUI->AnimSequenceImportData->bForceFrontXAxis = DazImportData.bFaceCharacterRight;
+#if UE_VERSION_NEWER_THAN(5,2,0)
+		  FbxFactory->ImportUI->AnimSequenceImportData->bAddCurveMetadataToSkeleton = true;
+#endif
 		  FbxFactory->ImportUI->MeshTypeToImport = FBXIT_Animation;
 	 }
 	 //UFbxFactory::EnableShowOption();
