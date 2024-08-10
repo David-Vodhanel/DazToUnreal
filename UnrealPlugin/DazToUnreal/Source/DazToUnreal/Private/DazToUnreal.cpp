@@ -643,6 +643,7 @@ UObject* FDazToUnrealModule::ImportFromDaz(TSharedPtr<FJsonObject> JsonObject, c
 	 if (AssetType == DazAssetType::MLDeformer)
 	 {
 		 DazToUnrealMLDeformerParams.JsonImportData = JsonObject;
+		 DazToUnrealMLDeformerParams.ImportData = ImportData;
 		 FDazToUnrealMLDeformer::ImportMLDeformerAssets(DazToUnrealMLDeformerParams);
 
 		 DazToUnrealMLDeformerParams.JsonImportData = JsonObject;

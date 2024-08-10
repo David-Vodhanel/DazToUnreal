@@ -1,5 +1,6 @@
 #include "DazToUnrealMLDeformer.h"
 #include "DazToUnrealSettings.h"
+#include "Misc/EngineVersionComparison.h"
 
 #if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION > 0
 #include "AssetRegistry/AssetRegistryModule.h"
@@ -9,9 +10,17 @@
 #include "MLDeformerAsset.h"
 #include "MLDeformerModel.h"
 #include "Subsystems/EditorAssetSubsystem.h"
+#include "MLDeformerEditorToolkit.h"
+#include "MLDeformerEditorModel.h"
 #endif
 #include "AssetToolsModule.h"
 #include "Dom/JsonObject.h"
+
+#if UE_VERSION_NEWER_THAN(5,3,9)
+#include "MLDeformerTrainingInputAnim.h"
+#include "MLDeformerGeomCacheTrainingInputAnim.h"
+#include "GeometryCache.h"
+#endif
 
 DEFINE_LOG_CATEGORY(LogDazToUnrealMLDeformer);
 
@@ -45,6 +54,10 @@ void FDazToUnrealMLDeformer::ImportMLDeformerAssets(FDazToUnrealMLDeformerParams
 	FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
 	ImportedAssets = AssetToolsModule.Get().ImportAssetsAutomated(ImportData);
 	AlembicFactory->RemoveFromRoot();
+	if (ImportedAssets.Num() > 0)
+	{
+		DazToUnrealMLDeformerParams.GeometryCacheAsset = Cast<UGeometryCache>(ImportedAssets[0]);
+	}
 
 	DazToUnrealMLDeformerParams.AssetName = TEXT("MLD_") + FPaths::GetBaseFilename(AlembicFilePath);
 	CreateMLDeformer(DazToUnrealMLDeformerParams);
@@ -92,12 +105,37 @@ void FDazToUnrealMLDeformer::CreateMLDeformer(FDazToUnrealMLDeformerParams& DazT
 		// Open the editor for the new deformer asset
 		GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->OpenEditorForAsset(Deformer);
 
+#if UE_VERSION_NEWER_THAN(5,3,9)
+		// Need to get the toolit to get the editor model to set the anim info.
+		if (IAssetEditorInstance* AssetEditorInterface = GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->FindEditorForAsset(Deformer, false))
+		{
+			UE::MLDeformer::FMLDeformerEditorToolkit* DeformerEditorToolkit = static_cast<UE::MLDeformer::FMLDeformerEditorToolkit*>(AssetEditorInterface);
+			UE::MLDeformer::FMLDeformerEditorModel* EditorModel = DeformerEditorToolkit->GetActiveModel();
+			if (EditorModel->GetNumTrainingInputAnims() > 0)
+			{
+				FMLDeformerTrainingInputAnim* TrainingInputAnim = EditorModel->GetTrainingInputAnim(0);
+				TrainingInputAnim->SetAnimSequence(DazToUnrealMLDeformerParams.AnimationAsset);
+
+				FMLDeformerGeomCacheTrainingInputAnim* GeomCacheTrainingInput = static_cast<FMLDeformerGeomCacheTrainingInputAnim*>(TrainingInputAnim);
+				GeomCacheTrainingInput->SetGeometryCache(TSoftObjectPtr<UGeometryCache>(DazToUnrealMLDeformerParams.GeometryCacheAsset));
+			}
+		}
+#endif
+
 		// Set the transform for the alembic data so it lines up with the skeletal mesh
-		FTransform Transform(FRotator(0.0f, 90.0f, -90.0f), FVector(0.0f, 0.0f, 0.0f), FVector(-1.0f, 1.0f, 1.0f));
-		Deformer->GetModel()->SetAlignmentTransform(Transform);
+		if (DazToUnrealMLDeformerParams.ImportData.bFaceCharacterRight)
+		{
+			FTransform Transform(FRotator(0.0f, 90.0f, -90.0f), FVector(0.0f, 0.0f, 0.0f), FVector(-1.0f, 1.0f, 1.0f));
+			Deformer->GetModel()->SetAlignmentTransform(Transform);
+		}
+		else
+		{
+			FTransform Transform(FRotator(0.0f, 180.0f, -90.0f), FVector(0.0f, 0.0f, 0.0f), FVector(-1.0f, 1.0f, 1.0f));
+			Deformer->GetModel()->SetAlignmentTransform(Transform);
+		}
 
 		// Set up a hook for automatically setting the RetargetSourceAsset on the animation
-		Deformer->GetModel()->OnPostEditChangeProperty().AddStatic(FDazToUnrealMLDeformer::ModelPropertyChange, Deformer->GetModel());
+		Deformer->GetModel()->OnPostEditChangeProperty().AddStatic(FDazToUnrealMLDeformer::ModelPropertyChange, Deformer);
 
 		// Return the deformer back to the main function
 		DazToUnrealMLDeformerParams.OutAsset = Deformer;
@@ -105,21 +143,48 @@ void FDazToUnrealMLDeformer::CreateMLDeformer(FDazToUnrealMLDeformerParams& DazT
 #endif
 }
 
-void FDazToUnrealMLDeformer::ModelPropertyChange(FPropertyChangedEvent& PropertyChangeEvent, UMLDeformerModel* DeformerModel)
+void FDazToUnrealMLDeformer::ModelPropertyChange(FPropertyChangedEvent& PropertyChangeEvent, UMLDeformerAsset* DeformerAsset)
 {
 #if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION > 0
-	if (DeformerModel == nullptr) return;
+	if (DeformerAsset == nullptr) return;
+	if (!DeformerAsset->GetModel()) return;
 
 	// When the SkeletalMesh or AnimSequence are updated set the RetargetSourceAsset on the AnimSequence automatically
 	if (PropertyChangeEvent.GetMemberPropertyName() == "SkeletalMesh" ||
 		PropertyChangeEvent.GetMemberPropertyName() == "AnimSequence")
 	{
-		if (UAnimSequence* AnimSequence = DeformerModel->GetAnimSequence())
+#if UE_VERSION_NEWER_THAN(5,3,9)
+		if (IAssetEditorInstance* AssetEditorInterface = GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->FindEditorForAsset(DeformerAsset, false))
 		{
-			AnimSequence->RetargetSourceAsset = DeformerModel->GetSkeletalMesh();
+			UE::MLDeformer::FMLDeformerEditorToolkit* DeformerEditorToolkit = static_cast<UE::MLDeformer::FMLDeformerEditorToolkit*>(AssetEditorInterface);
+			UE::MLDeformer::FMLDeformerEditorModel* EditorModel = DeformerEditorToolkit->GetActiveModel();
+
+			for (int32 TrainingInputIndex = 0; TrainingInputIndex < EditorModel->GetNumTrainingInputAnims(); TrainingInputIndex++)
+			{
+				FMLDeformerTrainingInputAnim* TrainingInputAnim = EditorModel->GetTrainingInputAnim(0);
+				if (UAnimSequence* AnimSequence = TrainingInputAnim->GetAnimSequence())
+				{
+					AnimSequence->RetargetSourceAsset = DeformerAsset->GetModel()->GetSkeletalMesh();
+					UEditorAssetSubsystem* EditorAssetSubsystem = GEditor->GetEditorSubsystem<UEditorAssetSubsystem>();
+					EditorAssetSubsystem->SaveLoadedAsset(AnimSequence, true);
+				}	
+			}
+
+			// If a bone list hasn't been set, automatically set the animated bones
+			// Note: Setting this causes a crash in 5.4
+			//if (EditorModel->GetModel()->GetBoneIncludeList().Num() == 0)
+			//{
+			//	EditorModel->AddAnimatedBonesToBonesIncludeList();
+			//}
+		}
+#else
+		if (UAnimSequence* AnimSequence = DeformerAsset->GetModel()->GetAnimSequence())
+		{
+			AnimSequence->RetargetSourceAsset = DeformerAsset->GetModel()->GetSkeletalMesh();
 			UEditorAssetSubsystem* EditorAssetSubsystem = GEditor->GetEditorSubsystem<UEditorAssetSubsystem>();
 			EditorAssetSubsystem->SaveLoadedAsset(AnimSequence, true);
 		}
+#endif
 	}
 #endif
 }
