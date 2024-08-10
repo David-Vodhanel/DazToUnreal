@@ -12,6 +12,7 @@
 #include "Subsystems/EditorAssetSubsystem.h"
 #include "MLDeformerEditorToolkit.h"
 #include "MLDeformerEditorModel.h"
+#include "GeometryCache.h"
 #endif
 #include "AssetToolsModule.h"
 #include "Dom/JsonObject.h"
@@ -19,7 +20,6 @@
 #if UE_VERSION_NEWER_THAN(5,3,9)
 #include "MLDeformerTrainingInputAnim.h"
 #include "MLDeformerGeomCacheTrainingInputAnim.h"
-#include "GeometryCache.h"
 #endif
 
 DEFINE_LOG_CATEGORY(LogDazToUnrealMLDeformer);
