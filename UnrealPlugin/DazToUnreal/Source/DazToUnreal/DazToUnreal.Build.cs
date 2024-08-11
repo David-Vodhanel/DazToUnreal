@@ -55,6 +55,7 @@ public class DazToUnreal : ModuleRules
 		PrivateDependencyModuleNames.Add("MLDeformerFramework");
 		PrivateDependencyModuleNames.Add("MLDeformerFrameworkEditor");
 		PrivateDependencyModuleNames.Add("NeuralNetworkInference");
+		PrivateDependencyModuleNames.Add("GeometryCache");
 #endif
 
 #if UE_5_2_OR_LATER
@@ -63,9 +64,6 @@ public class DazToUnreal : ModuleRules
 
 #if UE_5_3_OR_LATER
 		PrivateDependencyModuleNames.Remove("NeuralNetworkInference");
-#endif
-#if UE_5_4_OR_LATER
-		PrivateDependencyModuleNames.Add("GeometryCache");
 #endif
 
 		DynamicallyLoadedModuleNames.AddRange(
