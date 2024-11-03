@@ -94,6 +94,17 @@ private:
 	void OnCreateIKLimbBasedControlRigClicked(FSoftObjectPath SourceObjectPath);
 
 private:
+
+	// Create the menu for converting to an Epic Skeleton
+	void AddConvertToEpicSkeletonMenu();
+
+	// Create the per skeletal mesh menu
+	void AddConvertToEpicSkeletonSubMenu(UToolMenu* Menu);
+
+	// Conver the skeletal mesh to Epic Skeleton on click
+	void OnConvertToEpicSkeletonClicked(FSoftObjectPath EpicMeshObjectPath, class USkeletalMesh* SkeletalMeshToUpdate);
+
+private:
 	TSharedPtr<class FUICommandList> PluginCommands;
 
 	// Network listener functions

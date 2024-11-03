@@ -66,6 +66,10 @@ public class DazToUnreal : ModuleRules
 		PrivateDependencyModuleNames.Remove("NeuralNetworkInference");
 #endif
 
+#if UE_5_4_OR_LATER
+		PrivateDependencyModuleNames.Add("SkeletalMeshModifiers");
+#endif
+
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[]
 			{
