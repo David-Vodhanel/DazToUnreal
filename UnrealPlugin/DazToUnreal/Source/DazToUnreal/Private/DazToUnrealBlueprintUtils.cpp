@@ -371,7 +371,7 @@ void UDazToUnrealBlueprintUtils::ConvertToEpicSkeleton(USkeletalMesh* SkeletalMe
 	FAssetNotifications::SkeletonNeedsToBeSaved(TargetSkeleton);
 
 	// Disconnect the physics asset since it won't match now
-	SkeletalMesh->PhysicsAsset = nullptr;
+	SkeletalMesh->SetPhysicsAsset(nullptr);
 #endif
 }
 

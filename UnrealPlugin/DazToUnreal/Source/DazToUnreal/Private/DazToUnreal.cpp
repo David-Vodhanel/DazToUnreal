@@ -1631,12 +1631,12 @@ UObject* FDazToUnrealModule::ImportFromDaz(TSharedPtr<FJsonObject> JsonObject, c
 	 // Rename Material Slots
 	 if (USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(NewObject))
 	 {
-		 for (FSkeletalMaterial& SkeletalMaterial : SkeletalMesh->GetMaterials())
+		 //for (FSkeletalMaterial& SkeletalMaterial : SkeletalMesh->GetMaterials())
 		 {
 			 //SkeletalMaterial.MaterialSlotName = *ImportData.MaterialSlotNameToMaterialName.Find(SkeletalMaterial.MaterialSlotName);
 		 }
 
-		 TArray<FSkeletalMaterial>& MaterialsToSort = SkeletalMesh->GetMaterials();
+		 //TArray<FSkeletalMaterial>& MaterialsToSort = SkeletalMesh->GetMaterials();
 		 //MaterialsToSort.Sort([](const FSkeletalMaterial& A, const FSkeletalMaterial& B) { return A.MaterialSlotName.ToString() < B.MaterialSlotName.ToString(); });
 		 //SkeletalMesh->SetMaterials((SkeletalMesh->GetMaterials().Sort([](const FSkeletalMaterial& A, const FSkeletalMaterial& B) { return A.MaterialSlotName.ToString() < B.MaterialSlotName.ToString(); }));
 	 }
