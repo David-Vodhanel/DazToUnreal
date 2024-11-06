@@ -343,8 +343,8 @@ void UDazToUnrealBlueprintUtils::ConvertToEpicSkeleton(USkeletalMesh* SkeletalMe
 
 	Modifier->CommitSkeletonToSkeletalMesh();
 
-	UpdateReferencePose(SkeletalMesh, "lowerarm_l", FVector(0.0f, 0.0f, 37.0f));
-	UpdateReferencePose(SkeletalMesh, "lowerarm_r", FVector(0.0f, 0.0f, 37.0f));
+	//UpdateReferencePose(SkeletalMesh, "lowerarm_l", FVector(0.0f, 0.0f, 37.0f));
+	//UpdateReferencePose(SkeletalMesh, "lowerarm_r", FVector(0.0f, 0.0f, 37.0f));
 
 	// Change the Skeleton
 	USkeleton* TargetSkeleton = TargetEpicSkeleton->GetSkeleton();
