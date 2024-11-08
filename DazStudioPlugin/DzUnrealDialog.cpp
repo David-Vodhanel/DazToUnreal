@@ -103,6 +103,14 @@ DzUnrealDialog::DzUnrealDialog(QWidget *parent) :
 	skeletalMeshFaceCharacterRightCheckBox->setWhatsThis("If checked, character will be imported facing right (X Forward) in Unreal.");
 	commonSettingsLayout->addRow("Import Facing Right", skeletalMeshFaceCharacterRightCheckBox);
 
+	combineMaterialMethodComboBox = new QComboBox(commonSettingsGroupBox);
+	combineMaterialMethodComboBox->setWhatsThis("How to combine Materials in Unreal");
+	combineMaterialMethodComboBox->addItem("Combine Identical");
+	combineMaterialMethodComboBox->addItem("No Combine");
+	combineMaterialMethodComboBox->addItem("Combine All");
+	combineMaterialMethodComboBox->setCurrentIndex(0);
+	commonSettingsLayout->addRow("Material Combine Method", combineMaterialMethodComboBox);
+
 	commonSettingsGroupBox->setVisible(true);
 
 	// Add common settings to the mainLayout as a new row without header
@@ -257,6 +265,11 @@ bool DzUnrealDialog::loadSavedSettings()
 		skeletalMeshFaceCharacterRightCheckBox->setChecked(settings->value("SkeletalMeshFaceCharacterRight").toBool());
 	}
 
+	if (!settings->value("MaterialCombineMethod").isNull())
+	{
+		combineMaterialMethodComboBox->setCurrentIndex(settings->value("MaterialCombineMethod").toInt());
+	}
+
 	return true;
 }
 
@@ -276,6 +289,7 @@ void DzUnrealDialog::saveSettings()
 	settings->setValue("SkeletalMeshUniqueSkeletonPerCharacter", skeletalMeshUniqueSkeletonPerCharacterCheckBox->isChecked());
 	settings->setValue("SkeletalMeshFixTwistBones", skeletalMeshFixTwistBonesCheckBox->isChecked());
 	settings->setValue("SkeletalMeshFaceCharacterRight", skeletalMeshFaceCharacterRightCheckBox->isChecked());
+	settings->setValue("MaterialCombineMethod", combineMaterialMethodComboBox->currentIndex());
 }
 
 void DzUnrealDialog::resetToDefaults()

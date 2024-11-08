@@ -211,6 +211,7 @@ void DzUnrealAction::writeConfiguration()
 		 writer.addMember("CreateUniqueSkeleton", DazToUnrealDialog->getUniqueSkeletonPerCharacter());
 		 writer.addMember("FixTwistBones", DazToUnrealDialog->getFixTwistBones());
 		 writer.addMember("FaceCharacterRight", DazToUnrealDialog->getFaceCharacterRight());
+		 writer.addMember("MaterialCombineMethod", DazToUnrealDialog->getMaterialCombineMethod());
 	 }
 
 	 if (m_sAssetType == "Animation")
