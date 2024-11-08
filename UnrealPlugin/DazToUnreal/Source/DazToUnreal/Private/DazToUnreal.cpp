@@ -10,6 +10,7 @@
 #include "DazToUnrealSubdivision.h"
 #include "DazToUnrealMorphs.h"
 #include "DazToUnrealMLDeformer.h"
+#include "DazToUnrealBlueprintUtils.h"
 
 #include "EditorLevelLibrary.h"
 #include "LevelEditor.h"
@@ -201,6 +202,9 @@ void FDazToUnrealModule::StartupModule()
 	AddCreateRetargeterMenu();
 	AddCreateFullBodyIKControlRigMenu();
 	AddCreateIKLimbBasedControlRigMenu();
+#if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION > 3
+	AddConvertToEpicSkeletonMenu();
+#endif
 
 	/*FGlobalTabmanager::Get()->RegisterNomadTabSpawner(DazToUnrealTabName, FOnSpawnTab::CreateRaw(this, &FDazToUnrealModule::OnSpawnPluginTab))
 		.SetDisplayName(LOCTEXT("FDazToUnrealTabTitle", "DazToUnreal"))
@@ -1007,12 +1011,6 @@ UObject* FDazToUnrealModule::ImportFromDaz(TSharedPtr<FJsonObject> JsonObject, c
 	 {
 		 FDazToUnrealFbx::ParentAdditionalSkeletalMeshes(Scene);
 	 }
-	 
-	 // Take twist bones out of the chain
-	 if (AssetType == DazAssetType::SkeletalMesh && ImportData.bFixTwistBones)
-	 {
-		 FDazToUnrealFbx::FixTwistBones(RootBone);
-	 }
 
 	 // Daz Studio puts the base bone rotations in a different place than Unreal expects them.
 	 if (CachedSettings->FixBoneRotationsOnImport && AssetType == DazAssetType::SkeletalMesh && RootBone)
@@ -1198,6 +1196,12 @@ UObject* FDazToUnrealModule::ImportFromDaz(TSharedPtr<FJsonObject> JsonObject, c
 		  }
 	 }
 
+	 // Take twist bones out of the chain
+	 if (AssetType == DazAssetType::SkeletalMesh && ImportData.bFixTwistBones)
+	 {
+		 FDazToUnrealFbx::FixTwistBones(RootBone);
+	 }
+
 	 // Get a list of morph name mappings
 	 TMap<FString, FString> MorphMappings;
 	 TArray<TSharedPtr<FJsonValue>> morphList = JsonObject->GetArrayField(TEXT("Morphs"));
@@ -1353,6 +1357,7 @@ UObject* FDazToUnrealModule::ImportFromDaz(TSharedPtr<FJsonObject> JsonObject, c
 		  if (MaterialProperties.Contains(NewMaterialName))
 		  {
 				MaterialNames.Add(NewMaterialName);
+				ImportData.MaterialSlotNameToMaterialName.Add(FName(NewMaterialName), FName(FDazToUnrealUtils::SanitizeName(OriginalMaterialName)));
 		  }
 		  else
 		  {
@@ -1364,6 +1369,7 @@ UObject* FDazToUnrealModule::ImportFromDaz(TSharedPtr<FJsonObject> JsonObject, c
 					if (keyvalPair.Key.Contains(TEXT("_") + OriginalMaterialName))
 					{
 						MaterialNames.Add(keyvalPair.Key);
+						ImportData.MaterialSlotNameToMaterialName.Add(FName(keyvalPair.Key), FName(FDazToUnrealUtils::SanitizeName(OriginalMaterialName)));
 						bPartialMatchFound = true;
 						break;
 					}
@@ -1622,6 +1628,19 @@ UObject* FDazToUnrealModule::ImportFromDaz(TSharedPtr<FJsonObject> JsonObject, c
 	 }
 #endif
 
+	 // Rename Material Slots
+	 if (USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(NewObject))
+	 {
+		 //for (FSkeletalMaterial& SkeletalMaterial : SkeletalMesh->GetMaterials())
+		 {
+			 //SkeletalMaterial.MaterialSlotName = *ImportData.MaterialSlotNameToMaterialName.Find(SkeletalMaterial.MaterialSlotName);
+		 }
+
+		 //TArray<FSkeletalMaterial>& MaterialsToSort = SkeletalMesh->GetMaterials();
+		 //MaterialsToSort.Sort([](const FSkeletalMaterial& A, const FSkeletalMaterial& B) { return A.MaterialSlotName.ToString() < B.MaterialSlotName.ToString(); });
+		 //SkeletalMesh->SetMaterials((SkeletalMesh->GetMaterials().Sort([](const FSkeletalMaterial& A, const FSkeletalMaterial& B) { return A.MaterialSlotName.ToString() < B.MaterialSlotName.ToString(); }));
+	 }
+
 	 if (USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(NewObject))
 	 {
 		 FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
@@ -1870,6 +1889,7 @@ UObject* FDazToUnrealModule::ImportFBXAsset(const DazToUnrealImportData& DazImpo
 		  AssetImportTask->DestinationPath = FbxImportData->DestinationPath;
 		  AssetImportTask->Options = FbxFactory->ImportUI;
 		  AssetImportTask->Factory = FbxFactory;
+		  AssetImportTask->bAutomated = false;
 		  TArray< UAssetImportTask* > ImportTasks;
 		  ImportTasks.Add(AssetImportTask);
 		  AssetToolsModule.Get().ImportAssetTasks(ImportTasks);
@@ -2186,6 +2206,65 @@ void FDazToUnrealModule::OnCreateIKLimbBasedControlRigClicked(FSoftObjectPath So
 	FString CreateControlRigCommand = FString::Format(TEXT("py CreateIKLimbBasedControlRig.py --skeletalMesh={0} --dtuFile=\"{1}\""), { SkeletalMeshPackagePath, DTUPath });
 	UE_LOG(LogDazToUnreal, Log, TEXT("Creating IK Limb Based Control Rig with command: %s"), *CreateControlRigCommand);
 	GEngine->Exec(NULL, *CreateControlRigCommand);
+}
+
+void FDazToUnrealModule::AddConvertToEpicSkeletonMenu()
+{
+#if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 1
+	// Create a new context menu item for Skeletal Meshes
+	UToolMenu* Menu = UToolMenus::Get()->ExtendMenu("ContentBrowser.AssetContextMenu.SkeletalMesh");
+	FToolMenuSection& Section = Menu->FindOrAddSection("GetAssetActions");
+
+	Section.AddSubMenu(
+		FName(TEXT("ConvertToEpicSkeletonMenu")),
+		LOCTEXT("ConvertToEpicSkeletonLabel", "Convert To Epic Skeleton"),
+		LOCTEXT("ConvertToEpicSkeletonLabelTip", "Converts the skeletal mesh to use the Epic Skeleton"),
+		FNewToolMenuDelegate::CreateRaw(this, &FDazToUnrealModule::AddConvertToEpicSkeletonSubMenu),
+		false);
+
+#endif
+}
+
+void FDazToUnrealModule::AddConvertToEpicSkeletonSubMenu(UToolMenu* Menu)
+{
+#if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 2
+	// Get selected SkeletalMesh
+	USkeletalMesh* TargetSkeletalMesh = nullptr;
+	if (const UContentBrowserAssetContextMenuContext* CBContext = Menu->Context.FindContext<UContentBrowserAssetContextMenuContext>())
+	{
+		TargetSkeletalMesh = CBContext->LoadFirstSelectedObject<USkeletalMesh>();
+	}
+
+
+	FToolMenuSection& Section = Menu->AddSection("SourceMesh", LOCTEXT("RetargetToEpicSkeletonSourceMesh_Label", "Source Mesh"));
+
+	// Find all SkeletalMeshes
+	TArray<FAssetData> Assets;
+	IAssetRegistry& AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
+	AssetRegistry.GetAssetsByClass(USkeletalMesh::StaticClass()->GetClassPathName(), Assets);
+
+	// Add a menu entry for each SkeletalMesh
+	for (FAssetData Asset : Assets)
+	{
+		const TAttribute<FText> Label = FText::FromString(Asset.AssetName.ToString());
+		FName Name = FName(Asset.AssetName.ToString());
+
+		Section.AddMenuEntry(
+			Name,
+			Label,
+			LOCTEXT("RetargetToEpicSkeletonSubMenuItemTip", "Choose this as the target Epic Skeleton."),
+			FSlateIcon(),
+			FUIAction(FExecuteAction::CreateRaw(this, &FDazToUnrealModule::OnConvertToEpicSkeletonClicked, Asset.GetSoftObjectPath(), TargetSkeletalMesh))
+		);
+
+	}
+#endif
+}
+
+void FDazToUnrealModule::OnConvertToEpicSkeletonClicked(FSoftObjectPath EpicMeshObjectPath, class USkeletalMesh* SkeletalMeshToUpdate)
+{
+	USkeletalMesh* TargetEpicSkeletalMesh = Cast<USkeletalMesh>(EpicMeshObjectPath.TryLoad());
+	UDazToUnrealBlueprintUtils::ConvertToEpicSkeleton(SkeletalMeshToUpdate, TargetEpicSkeletalMesh);
 }
 
 #undef LOCTEXT_NAMESPACE

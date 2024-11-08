@@ -31,4 +31,5 @@ struct DazToUnrealImportData
 	bool bCreateUniqueSkeleton = false;
 	bool bFixTwistBones = false;
 	bool bFaceCharacterRight = false;
+	TMap<FName, FName> MaterialSlotNameToMaterialName;
 };

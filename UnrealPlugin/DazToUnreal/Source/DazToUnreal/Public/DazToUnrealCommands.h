@@ -22,4 +22,5 @@ public:
 	TSharedPtr< FUICommandInfo > InstallSkeletonAssets;
 	TSharedPtr< FUICommandInfo > InstallMaterialAssets;
 	TSharedPtr< FUICommandInfo > CreateRetargeter;
+	TSharedPtr< FUICommandInfo > ConvertToEpicSkeleton;
 };
