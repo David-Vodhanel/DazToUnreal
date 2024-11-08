@@ -20,6 +20,13 @@ enum DazAssetType
 	MLDeformer
 };
 
+enum DazMaterialCombineType
+{
+	NoCombine,
+	CombineIdentical,
+	CombineAll
+};
+
 struct DazToUnrealImportData
 {
 	FString SourcePath;

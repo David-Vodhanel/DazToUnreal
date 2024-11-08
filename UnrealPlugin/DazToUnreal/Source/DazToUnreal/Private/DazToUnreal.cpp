@@ -443,6 +443,8 @@ UObject* FDazToUnrealModule::ImportFromDaz(TSharedPtr<FJsonObject> JsonObject, c
 {
 	FScopedSlowTask Progress(10.0f, LOCTEXT("CreatingAutoJCMControlRig", "Importing from Daz"));
 	Progress.MakeDialog();
+	const UDazToUnrealSettings* CachedSettings = GetDefault<UDazToUnrealSettings>();
+
 	 TMap<FString, TArray<FDUFTextureProperty>> MaterialProperties;
 
 	 FString FBXPath = JsonObject->GetStringField(TEXT("FBX File"));
@@ -470,6 +472,24 @@ UObject* FDazToUnrealModule::ImportFromDaz(TSharedPtr<FJsonObject> JsonObject, c
 		 UseExperimentalAnimationTransfer = JsonObject->GetBoolField(TEXT("Use Experimental Animation Transfer"));
 	 }
 
+	 DazMaterialCombineType MaterialCombineMethod = CachedSettings->CombineIdenticalMaterials ? DazMaterialCombineType::CombineIdentical : DazMaterialCombineType::NoCombine;
+	 if (JsonObject->HasField(TEXT("MaterialCombineMethod")))
+	 {
+		 FString MaterialCombineName = JsonObject->GetStringField(TEXT("MaterialCombineMethod"));
+		 if (MaterialCombineName.Compare(TEXT("No Combine"), ESearchCase::IgnoreCase) == 0)
+		 {
+			 MaterialCombineMethod = DazMaterialCombineType::NoCombine;
+		 }
+		 if (MaterialCombineName.Compare(TEXT("Combine Identical"), ESearchCase::IgnoreCase) == 0)
+		 {
+			 MaterialCombineMethod = DazMaterialCombineType::CombineIdentical;
+		 }
+		 if (MaterialCombineName.Compare(TEXT("Combine All"), ESearchCase::IgnoreCase) == 0)
+		 {
+			 MaterialCombineMethod = DazMaterialCombineType::CombineAll;
+		 }
+	 }
+
 	 // Build AssetIDLookup
 	 FString AssetID = JsonObject->GetStringField(TEXT("Asset ID"));
 	 if (!AssetIDLookup.Contains(AssetID))
@@ -490,8 +510,6 @@ UObject* FDazToUnrealModule::ImportFromDaz(TSharedPtr<FJsonObject> JsonObject, c
 	 FString FBXFile = FBXPath;
 	 FString BaseFBXFile = BaseFBXPath;
 	 FString HDFBXFile = HDFBXPath;
-
-	 const UDazToUnrealSettings* CachedSettings = GetDefault<UDazToUnrealSettings>();
 
 	 FString DAZImportFolder = CachedSettings->ImportDirectory.Path;
 	 FString DAZAnimationImportFolder = CachedSettings->AnimationImportDirectory.Path;
@@ -686,10 +704,15 @@ UObject* FDazToUnrealModule::ImportFromDaz(TSharedPtr<FJsonObject> JsonObject, c
 	 // Find duplicate materials
 	 TMap<TSharedPtr<FJsonValue>, TSharedPtr<FJsonValue>> DuplicateMaterials;
 	 TArray<TSharedPtr<FJsonValue>> matList = JsonObject->GetArrayField(TEXT("Materials"));
-	 if (CachedSettings->CombineIdenticalMaterials)
+	 if (MaterialCombineMethod == DazMaterialCombineType::CombineIdentical)
 	 {
-		 
 		 DuplicateMaterials = FDazToUnrealMaterials::FindDuplicateMaterials(matList);
+	 }
+
+	 // Combine All Materials
+	 if (MaterialCombineMethod == DazMaterialCombineType::CombineAll)
+	 {
+		 DuplicateMaterials = FDazToUnrealMaterials::CombineToOneMaterial(matList);
 	 }
 
 	 // Load material values
@@ -1281,7 +1304,7 @@ UObject* FDazToUnrealModule::ImportFromDaz(TSharedPtr<FJsonObject> JsonObject, c
 	 Scene->FillMaterialArray(MaterialArray);
 
 	 // Create a mapping of the names of duplicate (identical) materials
-	 if (CachedSettings->CombineIdenticalMaterials)
+	 if (MaterialCombineMethod != DazMaterialCombineType::NoCombine)
 	 {
 		 TMap<FString, FString> DuplicateToOriginalName;
 		 for (auto DuplicateMaterialPair : DuplicateMaterials)

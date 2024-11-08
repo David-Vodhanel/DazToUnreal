@@ -51,6 +51,9 @@ public:
 	// Returns a map of material to the material it's a duplicate of.
 	static TMap<TSharedPtr<FJsonValue>, TSharedPtr<FJsonValue>> FindDuplicateMaterials(TArray<TSharedPtr<FJsonValue>> MaterialList);
 
+	// Returns a duplicate mapping of all materials to one material so there will only be one material slot.
+	static TMap<TSharedPtr<FJsonValue>, TSharedPtr<FJsonValue>> CombineToOneMaterial(TArray<TSharedPtr<FJsonValue>> MaterialList);
+
 	// Get the friendly material object name from the fbx name
 	static FString GetFriendlyObjectName(FString FbxObjectName, TMap<FString, TArray<FDUFTextureProperty>> MaterialProperties);
 };
