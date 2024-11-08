@@ -53,6 +53,10 @@ public:
 		return skeletalMeshFaceCharacterRightCheckBox ? skeletalMeshFaceCharacterRightCheckBox->isChecked() : false;
 	}
 
+	QString getMaterialCombineMethod() {
+		return combineMaterialMethodComboBox ? combineMaterialMethodComboBox->currentText() : QString("Combine Identical");
+	}
+
 	// Settings
 	Q_INVOKABLE void resetToDefaults() override;
 	Q_INVOKABLE void saveSettings() override;
@@ -86,6 +90,7 @@ protected:
 	QGroupBox* commonSettingsGroupBox = nullptr;
 	QCheckBox* skeletalMeshFixTwistBonesCheckBox = nullptr;
 	QCheckBox* skeletalMeshFaceCharacterRightCheckBox = nullptr;
+	QComboBox* combineMaterialMethodComboBox = nullptr;
 
 #ifdef UNITTEST_DZBRIDGE
 	friend class UnitTest_DzUnrealDialog;
