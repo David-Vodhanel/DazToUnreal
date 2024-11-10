@@ -568,6 +568,11 @@ UObject* FDazToUnrealModule::ImportFromDaz(TSharedPtr<FJsonObject> JsonObject, c
 	 ImportData.AssetType = AssetType;
 	 ImportData.CharacterTypeName = AssetID;
 	 JsonObject->TryGetBoolField(TEXT("CreateUniqueSkeleton"), ImportData.bCreateUniqueSkeleton);
+	 JsonObject->TryGetBoolField(TEXT("ConvertToEpicSkeleton"), ImportData.bConvertToEpicSkeleton);
+	 if (ImportData.bConvertToEpicSkeleton)
+	 {
+		 ImportData.bCreateUniqueSkeleton = true;
+	 }
 	 JsonObject->TryGetBoolField(TEXT("FixTwistBones"), ImportData.bFixTwistBones);
 	 if (!JsonObject->TryGetBoolField(TEXT("FaceCharacterRight"), ImportData.bFaceCharacterRight))
 	 {
@@ -1642,7 +1647,7 @@ UObject* FDazToUnrealModule::ImportFromDaz(TSharedPtr<FJsonObject> JsonObject, c
 	 Progress.EnterProgressFrame(1, LOCTEXT("CreatingFullBodyIKControlRig", "Creating Full Body IK Control Rig"));
 #if ENGINE_MAJOR_VERSION > 4
 	 // Create a control rig for the character
-	 if (AssetType == DazAssetType::SkeletalMesh && CachedSettings->CreateFullBodyIKControlRig && NewObject)
+	 if (AssetType == DazAssetType::SkeletalMesh && CachedSettings->CreateFullBodyIKControlRig && !ImportData.bConvertToEpicSkeleton && NewObject)
 	 {
 		 FString SkeletalMeshPackagePath = NewObject->GetOutermost()->GetPathName() + TEXT(".") + NewObject->GetName();
 		 FString CreateControlRigCommand = FString::Format(TEXT("py CreateControlRig.py --skeletalMesh={0} --dtuFile=\"{1}\""), { SkeletalMeshPackagePath, FileName });
@@ -1662,6 +1667,14 @@ UObject* FDazToUnrealModule::ImportFromDaz(TSharedPtr<FJsonObject> JsonObject, c
 		 //TArray<FSkeletalMaterial>& MaterialsToSort = SkeletalMesh->GetMaterials();
 		 //MaterialsToSort.Sort([](const FSkeletalMaterial& A, const FSkeletalMaterial& B) { return A.MaterialSlotName.ToString() < B.MaterialSlotName.ToString(); });
 		 //SkeletalMesh->SetMaterials((SkeletalMesh->GetMaterials().Sort([](const FSkeletalMaterial& A, const FSkeletalMaterial& B) { return A.MaterialSlotName.ToString() < B.MaterialSlotName.ToString(); }));
+	 }
+
+	 if (USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(NewObject))
+	 {
+		 if (ImportData.bConvertToEpicSkeleton)
+		 {
+			 UDazToUnrealBlueprintUtils::ConvertToEpicSkeleton(SkeletalMesh, nullptr);
+		 }
 	 }
 
 	 if (USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(NewObject))

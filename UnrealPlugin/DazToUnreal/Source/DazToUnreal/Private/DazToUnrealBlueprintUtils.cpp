@@ -2,6 +2,7 @@
 #include "ReferenceSkeleton.h"
 #include "Animation/Skeleton.h"
 #include "AssetNotifications.h"
+#include "AssetRegistry/AssetRegistryModule.h"
 
 #if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION == 2
 #include "IKRigDefinition.h"
@@ -97,18 +98,37 @@ FName UDazToUnrealBlueprintUtils::GetJointBone(const class USkeleton* Skeleton, 
 void UDazToUnrealBlueprintUtils::ConvertToEpicSkeleton(USkeletalMesh* SkeletalMesh, USkeletalMesh* TargetEpicSkeleton)
 {
 #if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION > 3
+	if (!TargetEpicSkeleton)
+	{
+		// Find all SkeletalMeshes
+		TArray<FAssetData> Assets;
+		IAssetRegistry& AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
+		AssetRegistry.GetAssetsByClass(USkeletalMesh::StaticClass()->GetClassPathName(), Assets);
+
+		// Add a menu entry for each SkeletalMesh
+		for (FAssetData Asset : Assets)
+		{
+			if (Asset.AssetName == "SKM_Quinn")
+			{
+				TargetEpicSkeleton = Cast<USkeletalMesh>(Asset.GetAsset());
+			}
+		}
+	}
+
 	USkeletonModifier* Modifier = NewObject<USkeletonModifier>();
 	Modifier->SetSkeletalMesh(SkeletalMesh);
 
 	// Reparent Pelvis area
-	Modifier->ParentBone("l_thigh", "hip");
-	Modifier->ParentBone("r_thigh", "hip");
-	Modifier->ParentBone("spine1", "pelvis");
+	Modifier->ParentBone("pelvis", "root");
+	Modifier->ParentBone("hip", "pelvis");
+	//Modifier->ParentBone("l_thigh", "hip");
+	//Modifier->ParentBone("r_thigh", "hip");
+	//Modifier->ParentBone("spine1", "pelvis");
 	//Modifier->RemoveBone("daz_pelvis", true);
 
 	// Rename Spine
-	Modifier->RenameBone("pelvis", "spine_01");
-	Modifier->RenameBone("hip", "pelvis");
+	//Modifier->RenameBone("pelvis", "spine_01");
+	Modifier->RenameBone("hip", "spine_01");
 	Modifier->RenameBone("spine1", "spine_02");
 	Modifier->RenameBone("spine2", "spine_03");
 	Modifier->RenameBone("spine3", "spine_04");
@@ -214,9 +234,32 @@ void UDazToUnrealBlueprintUtils::ConvertToEpicSkeleton(USkeletalMesh* SkeletalMe
 	// Set Root Rotation
 	Modifier->SetBoneTransform("root", FTransform::Identity, false);
 
+	// spine_01 height
+	//FTransform PelvisTransform = Modifier->GetBoneTransform("pelvis", true);
+	//FTransform Spine01Transform = Modifier->GetBoneTransform("spine_01", true);
+	//Spine01Transform.AddToTranslation(FVector(0.0f, 0.0f, 2.0f));
+	//Modifier->SetBoneTransform("spine_01", Spine01Transform, false);
+
 	//Rotation Order is Y, Z, X
 	FQuat SpineRefRotation = FQuat(FRotator(90.0f, -90.0f, -90.0f));
 	SetBoneOrientation(Modifier, "pelvis", SpineRefRotation);
+
+	// Move pelvis down
+	FTransform PelvisTransform = Modifier->GetBoneTransform("pelvis", true);
+	FTransform LeftThighTransform = Modifier->GetBoneTransform("thigh_l", true);
+	float PelvisHeightAdjustment = (PelvisTransform.GetTranslation().Z - LeftThighTransform.GetTranslation().Z) * 0.7f;
+
+	FTransform PelvisRelativeTransform = Modifier->GetBoneTransform("pelvis", false);
+	PelvisRelativeTransform.AddToTranslation(FVector(0.0f, 0.0f, -1.0f * PelvisHeightAdjustment));
+	Modifier->SetBoneTransform("pelvis", PelvisRelativeTransform, false);
+
+	// spine_01 height
+	PelvisTransform = Modifier->GetBoneTransform("pelvis", true);
+	FTransform Spine02Transform = Modifier->GetBoneTransform("spine_02", true);
+	FVector RelativeLocation = FTransform::SubtractTranslations(Spine02Transform, PelvisTransform) * 0.5f;
+	FTransform Spine01Transform = Modifier->GetBoneTransform("spine_01");
+	Spine01Transform.SetTranslation(FVector(RelativeLocation.Z, RelativeLocation.Y, 0.0f));
+	Modifier->SetBoneTransform("spine_01", Spine01Transform, false);
 
 	SetBoneOrientation(Modifier, "spine_01", FQuat(FRotator(0.0f, 0.0f, 0.0f)));
 	SetBoneOrientation(Modifier, "spine_02", FQuat(FRotator(0.0f, 0.0f, 0.0f)));
