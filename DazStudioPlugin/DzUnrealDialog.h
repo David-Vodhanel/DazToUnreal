@@ -45,6 +45,10 @@ public:
 		return skeletalMeshUniqueSkeletonPerCharacterCheckBox ? skeletalMeshUniqueSkeletonPerCharacterCheckBox->isChecked() : false;
 	}
 
+	bool getConvertToEpicSkeleton() {
+		return skeletalMeshConvertToEpicSkeletonCheckBox ? skeletalMeshConvertToEpicSkeletonCheckBox->isChecked() : false;
+	}
+
 	bool getFixTwistBones() {
 		return skeletalMeshFixTwistBonesCheckBox ? skeletalMeshFixTwistBonesCheckBox->isChecked() : false;
 	}
@@ -85,6 +89,7 @@ protected:
 	// SkeletalMesh settings
 	QGroupBox* skeletalMeshSettingsGroupBox = nullptr;
 	QCheckBox* skeletalMeshUniqueSkeletonPerCharacterCheckBox = nullptr;
+	QCheckBox* skeletalMeshConvertToEpicSkeletonCheckBox = nullptr;
 
 	// Common settings
 	QGroupBox* commonSettingsGroupBox = nullptr;

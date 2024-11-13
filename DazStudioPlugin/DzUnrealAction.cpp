@@ -209,6 +209,7 @@ void DzUnrealAction::writeConfiguration()
 	 if (m_sAssetType == "SkeletalMesh")
 	 {
 		 writer.addMember("CreateUniqueSkeleton", DazToUnrealDialog->getUniqueSkeletonPerCharacter());
+		 writer.addMember("ConvertToEpicSkeleton", DazToUnrealDialog->getConvertToEpicSkeleton());
 		 writer.addMember("FixTwistBones", DazToUnrealDialog->getFixTwistBones());
 		 writer.addMember("FaceCharacterRight", DazToUnrealDialog->getFaceCharacterRight());
 		 writer.addMember("MaterialCombineMethod", DazToUnrealDialog->getMaterialCombineMethod());

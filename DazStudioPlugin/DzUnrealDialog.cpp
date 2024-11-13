@@ -153,6 +153,11 @@ DzUnrealDialog::DzUnrealDialog(QWidget *parent) :
 	skeletalMeshUniqueSkeletonPerCharacterCheckBox->setWhatsThis("If checked, a new skeleton will be created for this character instead of sharing a skeleton with related characters.");
 	skeletalMeshSettingsLayout->addRow("Unique Skeleton", skeletalMeshUniqueSkeletonPerCharacterCheckBox);
 
+	skeletalMeshConvertToEpicSkeletonCheckBox = new QCheckBox("", skeletalMeshSettingsGroupBox);
+	skeletalMeshConvertToEpicSkeletonCheckBox->setChecked(false);
+	skeletalMeshConvertToEpicSkeletonCheckBox->setWhatsThis("If checked, will attempts to convert the character to the Epic Skeleton.  Requires an Unreal project containing the Manny or Quinn mannequin.");
+	skeletalMeshSettingsLayout->addRow("Convert To Epic Skeleton", skeletalMeshConvertToEpicSkeletonCheckBox);
+
 	mlDeformerSettingsGroupBox->setVisible(false);
 
 	// Add SkeletalMesh settings to the mainLayout as a new row without header
@@ -255,6 +260,11 @@ bool DzUnrealDialog::loadSavedSettings()
 		skeletalMeshUniqueSkeletonPerCharacterCheckBox->setChecked(settings->value("SkeletalMeshUniqueSkeletonPerCharacter").toBool());
 	}
 
+	if (!settings->value("SkeletalMeshConvertToEpicSkeleton").isNull())
+	{
+		skeletalMeshConvertToEpicSkeletonCheckBox->setChecked(settings->value("SkeletalMeshConvertToEpicSkeleton").toBool());
+	}
+
 	if (!settings->value("SkeletalMeshFixTwistBones").isNull())
 	{
 		skeletalMeshFixTwistBonesCheckBox->setChecked(settings->value("SkeletalMeshFixTwistBones").toBool());
@@ -287,6 +297,7 @@ void DzUnrealDialog::saveSettings()
 
 	// SkeletalMesh settings
 	settings->setValue("SkeletalMeshUniqueSkeletonPerCharacter", skeletalMeshUniqueSkeletonPerCharacterCheckBox->isChecked());
+	settings->setValue("SkeletalMeshConvertToEpicSkeleton", skeletalMeshConvertToEpicSkeletonCheckBox->isChecked());
 	settings->setValue("SkeletalMeshFixTwistBones", skeletalMeshFixTwistBonesCheckBox->isChecked());
 	settings->setValue("SkeletalMeshFaceCharacterRight", skeletalMeshFaceCharacterRightCheckBox->isChecked());
 	settings->setValue("MaterialCombineMethod", combineMaterialMethodComboBox->currentIndex());
