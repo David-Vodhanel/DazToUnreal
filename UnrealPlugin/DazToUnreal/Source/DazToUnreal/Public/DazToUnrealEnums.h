@@ -20,6 +20,13 @@ enum DazAssetType
 	MLDeformer
 };
 
+enum DazMaterialCombineType
+{
+	NoCombine,
+	CombineIdentical,
+	CombineAll
+};
+
 struct DazToUnrealImportData
 {
 	FString SourcePath;
@@ -29,6 +36,7 @@ struct DazToUnrealImportData
 	FString CharacterTypeName;
 	bool bSetPostProcessAnimation = true;
 	bool bCreateUniqueSkeleton = false;
+	bool bConvertToEpicSkeleton = false;
 	bool bFixTwistBones = false;
 	bool bFaceCharacterRight = false;
 	TMap<FName, FName> MaterialSlotNameToMaterialName;

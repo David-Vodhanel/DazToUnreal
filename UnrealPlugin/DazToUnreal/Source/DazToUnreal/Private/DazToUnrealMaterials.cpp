@@ -913,6 +913,17 @@ TMap<TSharedPtr<FJsonValue>, TSharedPtr<FJsonValue>> FDazToUnrealMaterials::Find
 	return Duplicates;
 }
 
+// Returns a duplicate mapping of all materials to one material so there will only be one material slot.
+TMap<TSharedPtr<FJsonValue>, TSharedPtr<FJsonValue>> FDazToUnrealMaterials::CombineToOneMaterial(TArray<TSharedPtr<FJsonValue>> MaterialList)
+{
+	TMap<TSharedPtr<FJsonValue>, TSharedPtr<FJsonValue>> Duplicates;
+	for (int32 i = 1; i < MaterialList.Num(); i++)
+	{
+		Duplicates.Add(MaterialList[i], MaterialList[0]);
+	}
+	return Duplicates;
+}
+
 FString FDazToUnrealMaterials::GetFriendlyObjectName(FString FbxObjectName, TMap<FString, TArray<FDUFTextureProperty>> MaterialProperties)
 {
 	// Find the torso material.
