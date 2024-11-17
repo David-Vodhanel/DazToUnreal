@@ -41,6 +41,8 @@ class UDazToUnrealBlueprintUtils : public UBlueprintFunctionLibrary
 
 		static void AlignBone(class USkeletonModifier* Modifier, FName Parent, FName Child, FVector AlignmentAxis);
 
+		static void FixBoneOffset(class USkeletonModifier* Modifier, FName Parent, FName BoneToFix, FVector ForwardAxis);
+
 		static void UpdateReferencePose(class USkeletalMesh* SkeletalMesh, FName BoneName, FVector AdditiveRotation);
 #endif
 };

@@ -313,9 +313,12 @@ void UDazToUnrealBlueprintUtils::ConvertToEpicSkeleton(USkeletalMesh* SkeletalMe
 	AlignBone(Modifier, FName("spine_05"), FName("neck_01"), FVector(0.0f, 0.0f, 1.0f));
 	AlignBone(Modifier, FName("neck_01"), FName("neck_02"), FVector(0.0f, 0.0f, 1.0f));
 
-	AlignBone(Modifier, FName("lowerarm_l"), FName("hand_l"), FVector(0.0f, 1.0f, 1.0f));
+	AlignBone(Modifier, FName("clavicle_l"), FName("upperarm_l"), FVector(0.0f, 1.0f, 1.0f));
 	AlignBone(Modifier, FName("upperarm_l"), FName("lowerarm_l"), FVector(0.0f, 1.0f, 1.0f));
-	AlignBone(Modifier, FName("clavicle_l"), FName("upperarm_l"), FVector(0.0f, 1.0f, 0.0f));
+
+	// Hand twice on purpose. 
+	AlignBone(Modifier, FName("lowerarm_l"), FName("hand_l"), FVector(0.0f, 1.0f, 1.0f));
+	AlignBone(Modifier, FName("lowerarm_l"), FName("hand_l"), FVector(0.0f, 1.0f, 1.0f));
 
 	AdditiveBoneOrientation(Modifier, "hand_l", FQuat(FRotator(0.0f, 0.0f, -180.0f)));
 
@@ -343,9 +346,12 @@ void UDazToUnrealBlueprintUtils::ConvertToEpicSkeleton(USkeletalMesh* SkeletalMe
 	AdditiveBoneOrientation(Modifier, "thumb_02_l", FQuat(FRotator(0.0f, 0.0f, -90.0f)));
 	AdditiveBoneOrientation(Modifier, "thumb_03_l", FQuat(FRotator(0.0f, 0.0f, -90.0f)));
 
-	AlignBone(Modifier, FName("lowerarm_r"), FName("hand_r"), FVector(0.0f, 1.0f, 1.0f));
+	AlignBone(Modifier, FName("clavicle_r"), FName("upperarm_r"), FVector(0.0f, 1.0f, 1.0f));
 	AlignBone(Modifier, FName("upperarm_r"), FName("lowerarm_r"), FVector(0.0f, 1.0f, 1.0f));
-	AlignBone(Modifier, FName("clavicle_r"), FName("upperarm_r"), FVector(0.0f, 1.0f, 0.0f));
+
+	// Hand twice on purpose
+	AlignBone(Modifier, FName("lowerarm_r"), FName("hand_r"), FVector(0.0f, 1.0f, 1.0f));
+	AlignBone(Modifier, FName("lowerarm_r"), FName("hand_r"), FVector(0.0f, 1.0f, 1.0f));
 
 	AlignBone(Modifier, FName("lowerarm_twist_02_r"), FName("hand_r"), FVector(0.0f, 1.0f, 1.0f));
 	AlignBone(Modifier, FName("lowerarm_twist_01_r"), FName("hand_r"), FVector(0.0f, 1.0f, 1.0f));
@@ -528,26 +534,30 @@ const FTransform UDazToUnrealBlueprintUtils::GetGlobalTransform(const FReference
 
 void UDazToUnrealBlueprintUtils::AlignBone(class USkeletonModifier* Modifier, FName Parent, FName Child, FVector AlignmentAxis)
 {
-	FTransform ParentTransform = Modifier->GetBoneTransform(Parent);
-	FTransform ChildTransform = Modifier->GetBoneTransform(Child);
-	
-	FVector ChildRelativeLocation = ChildTransform.GetLocation();
+	FVector ChildRelativeLocation = Modifier->GetBoneTransform(Child, false).GetLocation();
+	FRotator NewRotation = FRotator(0.0f);
 	if (FMath::IsNearlyEqual(FMath::Abs(AlignmentAxis.Z), 1.0f))
 	{
-		double Rotation = FMath::Sin(ChildRelativeLocation.Y / ChildRelativeLocation.X);
+		double Rotation = FMath::Atan(ChildRelativeLocation.Y / ChildRelativeLocation.X);
 		Rotation = FMath::RadiansToDegrees(Rotation);
-
-		AdditiveBoneOrientation(Modifier, Parent, FQuat(FRotator(0.0f, Rotation * AlignmentAxis.Z, 0.0f)));
+		NewRotation.Yaw = Rotation * AlignmentAxis.Z;
 	}
 
 	if (FMath::IsNearlyEqual(FMath::Abs(AlignmentAxis.Y), 1.0f))
 	{
-		double Rotation = FMath::Sin(ChildRelativeLocation.Z / ChildRelativeLocation.X);
+		double Rotation = FMath::Atan(ChildRelativeLocation.Z / ChildRelativeLocation.X);
 		Rotation = FMath::RadiansToDegrees(Rotation);
-
-		AdditiveBoneOrientation(Modifier, Parent, FQuat(FRotator(Rotation * AlignmentAxis.Y, 0.0f, 0.0f)));
+		NewRotation.Pitch = Rotation * AlignmentAxis.Y;
 	}
-	//double Rotation = FVector::DotProduct(FVector(0,0,0), ChildTransform.GetLocation());
+	AdditiveBoneOrientation(Modifier, Parent, FQuat(FRotator(NewRotation.Pitch * AlignmentAxis.Y, NewRotation.Yaw * AlignmentAxis.Z, 0.0f)));
+}
 
+void UDazToUnrealBlueprintUtils::FixBoneOffset(class USkeletonModifier* Modifier, FName Parent, FName BoneToFix, FVector ForwardAxis)
+{
+	FTransform ParentTransform = Modifier->GetBoneTransform(Parent);
+	FTransform BoneToFixTransform = Modifier->GetBoneTransform(BoneToFix);
+	float Length = BoneToFixTransform.GetLocation().Length();
+	BoneToFixTransform.SetLocation(ForwardAxis * Length);
+	Modifier->SetBoneTransform(BoneToFix, BoneToFixTransform, true);
 }
 #endif
