@@ -68,6 +68,7 @@ public class DazToUnreal : ModuleRules
 
 #if UE_5_4_OR_LATER
 		PrivateDependencyModuleNames.Add("SkeletalMeshModifiers");
+		PrivateDependencyModuleNames.Add("PhysicsUtilities");
 #endif
 
 		DynamicallyLoadedModuleNames.AddRange(

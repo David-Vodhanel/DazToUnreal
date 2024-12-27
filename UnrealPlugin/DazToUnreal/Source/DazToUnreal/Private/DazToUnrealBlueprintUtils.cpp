@@ -14,6 +14,8 @@
 
 #if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION > 3
 #include "SkeletonModifier.h"
+#include "PhysicsEngine/PhysicsAsset.h"
+#include "PhysicsAssetUtils.h"
 #endif
 
 
@@ -420,7 +422,8 @@ void UDazToUnrealBlueprintUtils::ConvertToEpicSkeleton(USkeletalMesh* SkeletalMe
 	FAssetNotifications::SkeletonNeedsToBeSaved(TargetSkeleton);
 
 	// Disconnect the physics asset since it won't match now
-	SkeletalMesh->SetPhysicsAsset(nullptr);
+	FText CreationErrorMessage;
+	bool bSuccess = FPhysicsAssetUtils::CreateFromSkeletalMesh(SkeletalMesh->GetPhysicsAsset(), SkeletalMesh, FPhysAssetCreateParams(), CreationErrorMessage);
 #endif
 }
 
