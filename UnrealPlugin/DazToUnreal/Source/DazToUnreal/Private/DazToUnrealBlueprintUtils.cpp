@@ -128,8 +128,106 @@ void UDazToUnrealBlueprintUtils::ConvertToEpicSkeleton(USkeletalMesh* SkeletalMe
 	//Modifier->ParentBone("spine1", "pelvis");
 	//Modifier->RemoveBone("daz_pelvis", true);
 
+	// G3/G8/G8.1 Renaming ****************************************************************
 	// Rename Spine
-	//Modifier->RenameBone("pelvis", "spine_01");
+	Modifier->RenameBone("hip", "spine_01");
+	Modifier->RenameBone("abdomenLower", "spine_02");
+	Modifier->RenameBone("abdomenUpper", "spine_03");
+	Modifier->RenameBone("chestLower", "spine_04");
+	Modifier->RenameBone("chestUpper", "spine_05");
+
+	// Rename Neck
+	Modifier->RenameBone("neckLower", "neck_01");
+	Modifier->RenameBone("neckUpper", "neck_02");
+
+	// Rename Legs
+	Modifier->RenameBone("lThighBend", "thigh_l");
+	Modifier->RenameBone("lShin", "calf_l");
+	Modifier->RenameBone("lFoot", "foot_l");
+	Modifier->RenameBone("lToe", "ball_l");
+
+	Modifier->RenameBone("rThighBend", "thigh_r");
+	Modifier->RenameBone("rShin", "calf_r");
+	Modifier->RenameBone("rFoot", "foot_r");
+	Modifier->RenameBone("rToe", "ball_r");
+
+	// Leg Twists
+	Modifier->RenameBone("lThighTwist", "thigh_twist_01_l");
+
+	Modifier->RenameBone("rThighTwist", "thigh_twist_01_r");
+
+	// Arm Twists
+	Modifier->RenameBone("lShldrTwist", "upperarm_twist_01_l");
+
+	Modifier->RenameBone("rShldrTwist", "upperarm_twist_01_r");
+
+	// The Lower Arm twists are swapped
+	Modifier->RenameBone("lForearmTwist", "lowerarm_twist_02_l");
+
+	Modifier->RenameBone("rForearmTwist", "lowerarm_twist_02_r");
+
+	// Rename Arms
+	Modifier->RenameBone("lCollar", "clavicle_l");
+	Modifier->RenameBone("lShldrBend", "upperarm_l");
+	Modifier->RenameBone("lForearmBend", "lowerarm_l");
+	Modifier->RenameBone("lHand", "hand_l");
+
+	Modifier->RenameBone("rCollar", "clavicle_r");
+	Modifier->RenameBone("rShldrBend", "upperarm_r");
+	Modifier->RenameBone("rForearmBend", "lowerarm_r");
+	Modifier->RenameBone("rHand", "hand_r");
+
+	// Rename Fingers
+	Modifier->RenameBone("rCarpal1", "index_metacarpal_r");
+	Modifier->RenameBone("rIndex1", "index_01_r");
+	Modifier->RenameBone("rIndex2", "index_02_r");
+	Modifier->RenameBone("rIndex3", "index_03_r");
+
+	Modifier->RenameBone("rCarpal2", "middle_metacarpal_r");
+	Modifier->RenameBone("rMid1", "middle_01_r");
+	Modifier->RenameBone("rMid2", "middle_02_r");
+	Modifier->RenameBone("rMid3", "middle_03_r");
+						  
+	Modifier->RenameBone("rCarpal4", "pinky_metacarpal_r");
+	Modifier->RenameBone("rPinky1", "pinky_01_r");
+	Modifier->RenameBone("rPinky2", "pinky_02_r");
+	Modifier->RenameBone("rPinky3", "pinky_03_r");
+						  
+	Modifier->RenameBone("rCarpal3", "ring_metacarpal_r");
+	Modifier->RenameBone("rRing1", "ring_01_r");
+	Modifier->RenameBone("rRing2", "ring_02_r");
+	Modifier->RenameBone("rRing3", "ring_03_r");
+						  
+	Modifier->RenameBone("rThumb1", "thumb_01_r");
+	Modifier->RenameBone("rThumb2", "thumb_02_r");
+	Modifier->RenameBone("rThumb3", "thumb_03_r");
+
+	Modifier->RenameBone("lCarpal1", "index_metacarpal_l");
+	Modifier->RenameBone("lIndex1", "index_01_l");
+	Modifier->RenameBone("lIndex2", "index_02_l");
+	Modifier->RenameBone("lIndex3", "index_03_l");
+
+	Modifier->RenameBone("lCarpal2", "middle_metacarpal_l");
+	Modifier->RenameBone("lMid1", "middle_01_l");
+	Modifier->RenameBone("lMid2", "middle_02_l");
+	Modifier->RenameBone("lMid3", "middle_03_l");
+
+	Modifier->RenameBone("lCarpal4", "pinky_metacarpal_l");
+	Modifier->RenameBone("lPinky1", "pinky_01_l");
+	Modifier->RenameBone("lPinky2", "pinky_02_l");
+	Modifier->RenameBone("lPinky3", "pinky_03_l");
+
+	Modifier->RenameBone("lCarpal3", "ring_metacarpal_l");
+	Modifier->RenameBone("lRing1", "ring_01_l");
+	Modifier->RenameBone("lRing2", "ring_02_l");
+	Modifier->RenameBone("lRing3", "ring_03_l");
+
+	Modifier->RenameBone("lThumb1", "thumb_01_l");
+	Modifier->RenameBone("lThumb2", "thumb_02_l");
+	Modifier->RenameBone("lThumb3", "thumb_03_l");
+
+	// G9 Renaming ****************************************************************
+	// Rename Spine
 	Modifier->RenameBone("hip", "spine_01");
 	Modifier->RenameBone("spine1", "spine_02");
 	Modifier->RenameBone("spine2", "spine_03");
