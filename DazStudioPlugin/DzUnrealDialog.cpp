@@ -53,6 +53,9 @@ DzUnrealDialog::DzUnrealDialog(QWidget *parent) :
 	setWindowTitle(tr("Daz To Unreal %1 v%2.%3").arg(PLUGIN_MAJOR).arg(PLUGIN_MINOR).arg(revision));
 #endif
 
+#ifdef VODSVERSION
+	setWindowTitle(tr("Daz To Unreal (%1)").arg(VODS_PLUGIN_VERSION));
+#endif
 
 	// Welcome String for Setup/Welcome Mode
 	QString sDazAppDir = dzApp->getHomePath().replace("\\","/");
