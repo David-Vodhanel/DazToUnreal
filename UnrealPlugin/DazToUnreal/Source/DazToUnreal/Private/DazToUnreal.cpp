@@ -568,12 +568,13 @@ UObject* FDazToUnrealModule::ImportFromDaz(TSharedPtr<FJsonObject> JsonObject, c
 	 ImportData.AssetType = AssetType;
 	 ImportData.CharacterTypeName = AssetID;
 	 JsonObject->TryGetBoolField(TEXT("CreateUniqueSkeleton"), ImportData.bCreateUniqueSkeleton);
+	 JsonObject->TryGetBoolField(TEXT("FixTwistBones"), ImportData.bFixTwistBones);
 	 JsonObject->TryGetBoolField(TEXT("ConvertToEpicSkeleton"), ImportData.bConvertToEpicSkeleton);
 	 if (ImportData.bConvertToEpicSkeleton)
 	 {
 		 ImportData.bCreateUniqueSkeleton = true;
+		 ImportData.bFixTwistBones = true;
 	 }
-	 JsonObject->TryGetBoolField(TEXT("FixTwistBones"), ImportData.bFixTwistBones);
 	 if (!JsonObject->TryGetBoolField(TEXT("FaceCharacterRight"), ImportData.bFaceCharacterRight))
 	 {
 		 ImportData.bFaceCharacterRight = CachedSettings->ZeroRootRotationOnImport;
