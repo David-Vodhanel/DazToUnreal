@@ -3,6 +3,8 @@
 #include "Animation/Skeleton.h"
 #include "AssetNotifications.h"
 #include "AssetRegistry/AssetRegistryModule.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
 
 #if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION == 2
 #include "IKRigDefinition.h"
@@ -18,6 +20,9 @@
 #include "PhysicsAssetUtils.h"
 #endif
 
+DEFINE_LOG_CATEGORY(LogDazToUnrealBlueprintUtils);
+
+#define LOCTEXT_NAMESPACE "FDazToUnrealModule"
 
 UDazToUnrealBlueprintUtils::UDazToUnrealBlueprintUtils(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -115,6 +120,24 @@ void UDazToUnrealBlueprintUtils::ConvertToEpicSkeleton(USkeletalMesh* SkeletalMe
 				TargetEpicSkeleton = Cast<USkeletalMesh>(Asset.GetAsset());
 			}
 		}
+	}
+
+	if (!TargetEpicSkeleton)
+	{
+		UE_LOG(LogDazToUnrealBlueprintUtils, Error, TEXT("Convert to Epic Skeleton Used, but Quinn not found"));
+		FNotificationInfo Info(LOCTEXT("SkeletalMeshHasNoSkeleton", "Convert to Epic Skeleton requires project to have the UE5 mannequin.  Start from a template project that includes the mannequins."));
+		Info.bUseSuccessFailIcons = true;
+		Info.Image = FAppStyle::GetBrush(TEXT("MessageLog.Error"));
+		Info.bFireAndForget = true;
+		Info.bUseThrobber = true;
+		Info.FadeOutDuration = 2.f;
+		Info.ExpireDuration = 8.f;;
+		TSharedPtr<SNotificationItem> NotificationPtr = FSlateNotificationManager::Get().AddNotification(Info);
+		if (NotificationPtr)
+		{
+			NotificationPtr->SetCompletionState(SNotificationItem::CS_Fail);
+		}
+		return;
 	}
 
 	USkeletonModifier* Modifier = NewObject<USkeletonModifier>();
@@ -662,3 +685,5 @@ void UDazToUnrealBlueprintUtils::FixBoneOffset(class USkeletonModifier* Modifier
 	Modifier->SetBoneTransform(BoneToFix, BoneToFixTransform, true);
 }
 #endif
+
+#undef LOCTEXT_NAMESPACE

@@ -5,6 +5,8 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "DazToUnrealBlueprintUtils.generated.h"
 
+DECLARE_LOG_CATEGORY_EXTERN(LogDazToUnrealBlueprintUtils, Log, All);
+
 UCLASS()
 class UDazToUnrealBlueprintUtils : public UBlueprintFunctionLibrary
 {
