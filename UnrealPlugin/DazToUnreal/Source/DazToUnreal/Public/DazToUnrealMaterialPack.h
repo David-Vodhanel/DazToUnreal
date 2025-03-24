@@ -33,7 +33,7 @@ struct FDazMaterialMappingInfo
 	EDazMaterialType MaterialType = EDazMaterialType::Base;
 
 	/** Path to the material to use */
-	UPROPERTY(EditAnywhere, Category = "Material Mapping", meta = (AllowedClasses = "Material"))
+	UPROPERTY(EditAnywhere, Category = "Material Mapping", meta = (AllowedClasses = "/Script/Engine.Material"))
 	FSoftObjectPath MaterialPath;
 
 public:

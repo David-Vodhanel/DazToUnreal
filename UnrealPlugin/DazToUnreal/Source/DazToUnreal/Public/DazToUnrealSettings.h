@@ -139,15 +139,15 @@ public:
 		bool CreateFullBodyIKControlRig;
 
 	/** Skeleton to use for Genesis 1 characters */
-	UPROPERTY(config, EditAnywhere, Category = SkeletonSettings, meta = (AllowedClasses = "Skeleton"))
+	UPROPERTY(config, EditAnywhere, Category = SkeletonSettings, meta = (AllowedClasses = "/Script/Engine.Skeleton"))
 		FSoftObjectPath Genesis1Skeleton;
 
 	/** Skeleton to use for Genesis 3 characters */
-	UPROPERTY(config, EditAnywhere, Category = SkeletonSettings, meta = (AllowedClasses = "Skeleton"))
+	UPROPERTY(config, EditAnywhere, Category = SkeletonSettings, meta = (AllowedClasses = "/Script/Engine.Skeleton"))
 		FSoftObjectPath Genesis3Skeleton;
 
 	/** Skeleton to use for Genesis 8 characters */
-	UPROPERTY(config, EditAnywhere, Category = SkeletonSettings, meta = (AllowedClasses = "Skeleton"))
+	UPROPERTY(config, EditAnywhere, Category = SkeletonSettings, meta = (AllowedClasses = "/Script/Engine.Skeleton"))
 		FSoftObjectPath Genesis8Skeleton;
 
 	/** Used to save the skeleton to use for other character types */
@@ -171,7 +171,7 @@ public:
 		bool AddIKBones;
 
 	/** Material Packs to use.  Order matters, first matching material will be used.*/
-	UPROPERTY(config, EditAnywhere, Category = MaterialSettings, meta = (AllowedClasses = "DazToUnrealMaterialPack"))
+	UPROPERTY(config, EditAnywhere, Category = MaterialSettings, meta = (AllowedClasses = "/Script/DazToUnreal.DazToUnrealMaterialPack"))
 		TArray<FSoftObjectPath> MaterialPacks;
 
 	/** Used to change the name of material parameters at import time */
@@ -195,83 +195,83 @@ public:
 		bool UseInternalMorphName;
 
 	/** Override for the sub surface scatter opacity texture for the arms and fingernails for Genesis 3 Male  */
-	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis, meta = (AllowedClasses = "Texture"))
+	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis, meta = (AllowedClasses = "/Script/Engine.Texture"))
 		FSoftObjectPath ArmsSubSurfaceOpacityGenesis1Texture;
 
 	/** Override for the sub surface scatter opacity texture for the face, ears, and lips for Genesis 3 Male  */
-	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis, meta = (AllowedClasses = "Texture"))
+	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis, meta = (AllowedClasses = "/Script/Engine.Texture"))
 		FSoftObjectPath FaceSubSurfaceOpacityGenesis1Texture;
 
 	/** Override for the sub surface scatter opacity texture for the legs and toenails for Genesis 3 Male  */
-	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis, meta = (AllowedClasses = "Texture"))
+	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis, meta = (AllowedClasses = "/Script/Engine.Texture"))
 		FSoftObjectPath LegsSubSurfaceOpacityGenesis1Texture;
 
 	/** Override for the sub surface scatter opacity texture for the torso for Genesis 3 Male  */
-	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis, meta = (AllowedClasses = "Texture"))
+	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis, meta = (AllowedClasses = "/Script/Engine.Texture"))
 		FSoftObjectPath TorsoSubSurfaceOpacityGenesis1Texture;
 
 	/** Override for the sub surface scatter opacity texture for the arms and fingernails for Genesis 3 Male  */
-	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis3Male, meta = (AllowedClasses = "Texture"))
+	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis3Male, meta = (AllowedClasses = "/Script/Engine.Texture"))
 		FSoftObjectPath ArmsSubSurfaceOpacityGenesis3MaleTexture;
 
 	/** Override for the sub surface scatter opacity texture for the face, ears, and lips for Genesis 3 Male  */
-	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis3Male, meta = (AllowedClasses = "Texture"))
+	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis3Male, meta = (AllowedClasses = "/Script/Engine.Texture"))
 		FSoftObjectPath FaceSubSurfaceOpacityGenesis3MaleTexture;
 
 	/** Override for the sub surface scatter opacity texture for the legs and toenails for Genesis 3 Male  */
-	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis3Male, meta = (AllowedClasses = "Texture"))
+	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis3Male, meta = (AllowedClasses = "/Script/Engine.Texture"))
 		FSoftObjectPath LegsSubSurfaceOpacityGenesis3MaleTexture;
 
 	/** Override for the sub surface scatter opacity texture for the torso for Genesis 3 Male  */
-	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis3Male, meta = (AllowedClasses = "Texture"))
+	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis3Male, meta = (AllowedClasses = "/Script/Engine.Texture"))
 		FSoftObjectPath TorsoSubSurfaceOpacityGenesis3MaleTexture;
 
 	/** Override for the sub surface scatter opacity texture for the arms and fingernails for Genesis 3 Female  */
-	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis3Female, meta = (AllowedClasses = "Texture"))
+	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis3Female, meta = (AllowedClasses = "/Script/Engine.Texture"))
 		FSoftObjectPath ArmsSubSurfaceOpacityGenesis3FemaleTexture;
 
 	/** Override for the sub surface scatter opacity texture for the face, ears, and lips for Genesis 3 Female  */
-	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis3Female, meta = (AllowedClasses = "Texture"))
+	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis3Female, meta = (AllowedClasses = "/Script/Engine.Texture"))
 		FSoftObjectPath FaceSubSurfaceOpacityGenesis3FemaleTexture;
 
 	/** Override for the sub surface scatter opacity texture for the legs and toenails for Genesis 3 Female  */
-	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis3Female, meta = (AllowedClasses = "Texture"))
+	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis3Female, meta = (AllowedClasses = "/Script/Engine.Texture"))
 		FSoftObjectPath LegsSubSurfaceOpacityGenesis3FemaleTexture;
 
 	/** Override for the sub surface scatter opacity texture for the torso for Genesis 3 Female  */
-	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis3Female, meta = (AllowedClasses = "Texture"))
+	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis3Female, meta = (AllowedClasses = "/Script/Engine.Texture"))
 		FSoftObjectPath TorsoSubSurfaceOpacityGenesis3FemaleTexture;
 
 	/** Override for the sub surface scatter opacity texture for the arms and fingernails for Genesis 8 Male  */
-	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis8Male, meta = (AllowedClasses = "Texture"))
+	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis8Male, meta = (AllowedClasses = "/Script/Engine.Texture"))
 		FSoftObjectPath ArmsSubSurfaceOpacityGenesis8MaleTexture;
 
 	/** Override for the sub surface scatter opacity texture for the face, ears, and lips for Genesis 8 Male  */
-	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis8Male, meta = (AllowedClasses = "Texture"))
+	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis8Male, meta = (AllowedClasses = "/Script/Engine.Texture"))
 		FSoftObjectPath FaceSubSurfaceOpacityGenesis8MaleTexture;
 
 	/** Override for the sub surface scatter opacity texture for the legs and toenails for Genesis 8 Male  */
-	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis8Male, meta = (AllowedClasses = "Texture"))
+	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis8Male, meta = (AllowedClasses = "/Script/Engine.Texture"))
 		FSoftObjectPath LegsSubSurfaceOpacityGenesis8MaleTexture;
 
 	/** Override for the sub surface scatter opacity texture for the torso for Genesis 8 Male  */
-	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis8Male, meta = (AllowedClasses = "Texture"))
+	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis8Male, meta = (AllowedClasses = "/Script/Engine.Texture"))
 		FSoftObjectPath TorsoSubSurfaceOpacityGenesis8MaleTexture;
 
 	/** Override for the sub surface scatter opacity texture for the arms and fingernails for Genesis 8 Female  */
-	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis8Female, meta = (AllowedClasses = "Texture"))
+	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis8Female, meta = (AllowedClasses = "/Script/Engine.Texture"))
 		FSoftObjectPath ArmsSubSurfaceOpacityGenesis8FemaleTexture;
 
 	/** Override for the sub surface scatter opacity texture for the face, ears, and lips for Genesis 8 Female  */
-	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis8Female, meta = (AllowedClasses = "Texture"))
+	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis8Female, meta = (AllowedClasses = "/Script/Engine.Texture"))
 		FSoftObjectPath FaceSubSurfaceOpacityGenesis8FemaleTexture;
 
 	/** Override for the sub surface scatter opacity texture for the legs and toenails for Genesis 8 Female  */
-	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis8Female, meta = (AllowedClasses = "Texture"))
+	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis8Female, meta = (AllowedClasses = "/Script/Engine.Texture"))
 		FSoftObjectPath LegsSubSurfaceOpacityGenesis8FemaleTexture;
 
 	/** Override for the sub surface scatter opacity texture for the torso for Genesis 8 Female  */
-	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis8Female, meta = (AllowedClasses = "Texture"))
+	UPROPERTY(config, EditAnywhere, Category = SubSurfaceScatterGenesis8Female, meta = (AllowedClasses = "/Script/Engine.Texture"))
 		FSoftObjectPath TorsoSubSurfaceOpacityGenesis8FemaleTexture;
 
 
