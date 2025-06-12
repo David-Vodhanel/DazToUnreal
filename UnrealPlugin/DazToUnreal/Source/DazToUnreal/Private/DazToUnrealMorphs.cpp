@@ -32,7 +32,6 @@ UAnimBlueprint* FDazToUnrealMorphs::CreateJointControlAnimation(TSharedPtr<FJson
 		UPackage* NewPackage = CreatePackage(*PackageName);
 #endif
 		UAnimBlueprint* AnimBlueprint = CreateBlueprint(NewPackage, FName(AssetName), Skeleton);
-		UAnimInstance* AnimInstance = Cast<UAnimInstance>(AnimBlueprint->GetAnimBlueprintGeneratedClass()->ClassDefaultObject);
 
 
 #if 0
