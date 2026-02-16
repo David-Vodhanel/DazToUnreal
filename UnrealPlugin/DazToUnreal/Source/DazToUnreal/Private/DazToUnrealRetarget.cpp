@@ -30,6 +30,7 @@
 
 EDazRetargetCharacterType FDazToUnrealRetarget::GetCharacterTypeFromMesh(USkeletalMesh* SkeletalMesh)
 {
+#if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 7
 	if (SkeletalMesh == nullptr)
 	{
 		return EDazRetargetCharacterType::Unknown;
@@ -67,7 +68,7 @@ EDazRetargetCharacterType FDazToUnrealRetarget::GetCharacterTypeFromMesh(USkelet
 	{
 		return EDazRetargetCharacterType::Genesis9;
 	}
-
+#endif
 	return EDazRetargetCharacterType::Unknown;
 }
 
