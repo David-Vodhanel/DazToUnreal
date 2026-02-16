@@ -60,6 +60,7 @@ public class DazToUnreal : ModuleRules
 
 #if UE_5_2_OR_LATER
 		PrivateDependencyModuleNames.Add("IKRig");
+		PrivateDependencyModuleNames.Add("IKRigEditor");
 #endif
 
 #if UE_5_3_OR_LATER

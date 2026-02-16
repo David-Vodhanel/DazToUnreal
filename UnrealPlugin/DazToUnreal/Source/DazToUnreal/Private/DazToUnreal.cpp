@@ -11,6 +11,7 @@
 #include "DazToUnrealMorphs.h"
 #include "DazToUnrealMLDeformer.h"
 #include "DazToUnrealBlueprintUtils.h"
+#include "DazToUnrealRetarget.h"
 
 #include "EditorLevelLibrary.h"
 #include "LevelEditor.h"
@@ -73,6 +74,8 @@
 
 #if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION > 2
 #include "Rig/IKRigDefinition.h"
+#include "RigEditor/IKRigDefinitionFactory.h"
+#include "RigEditor/IKRigController.h"
 #endif
 
 
@@ -2100,33 +2103,45 @@ void FDazToUnrealModule::OnCreateRetargeterClicked(FSoftObjectPath SourceObjectP
 	UIKRigDefinition* SourceIKRig = FindIKRigForSkeletalMesh(SourceSkeletalMesh);
 	if (!SourceIKRig)
 	{
+#if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 7
+		SourceIKRig = FDazToUnrealRetarget::CreateIKRigForSkeletalMesh(SourceSkeletalMesh);
+#else
 		FString SkeletalMeshPackagePath = SourceSkeletalMesh->GetOutermost()->GetPathName() + TEXT(".") + SourceSkeletalMesh->GetName();
 		FString CreateIKRigCommand = FString::Format(TEXT("py CreateIKRig.py --skeletalMesh={0}"), { SkeletalMeshPackagePath });
 		UE_LOG(LogDazToUnreal, Log, TEXT("Creating Source IK Rig with command: %s"), *CreateIKRigCommand);
 		GEngine->Exec(NULL, *CreateIKRigCommand);
 		SourceIKRig = FindIKRigForSkeletalMesh(SourceSkeletalMesh);
+#endif
 	}
 
 	// Find or Create the Target IKRig
 	UIKRigDefinition* TargetIKRig = FindIKRigForSkeletalMesh(TargetSkeletalMesh);
 	if (!TargetIKRig)
 	{
+#if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 7
+		TargetIKRig = FDazToUnrealRetarget::CreateIKRigForSkeletalMesh(TargetSkeletalMesh);
+#else
 		FString SkeletalMeshPackagePath = TargetSkeletalMesh->GetOutermost()->GetPathName() + TEXT(".") + TargetSkeletalMesh->GetName();
 		FString CreateIKRigCommand = FString::Format(TEXT("py CreateIKRig.py --skeletalMesh={0}"), { SkeletalMeshPackagePath });
 		UE_LOG(LogDazToUnreal, Log, TEXT("Creating Source IK Rig with command: %s"), *CreateIKRigCommand);
 		GEngine->Exec(NULL, *CreateIKRigCommand);
 		TargetIKRig = FindIKRigForSkeletalMesh(TargetSkeletalMesh);
+#endif
 	}
 
 	// Create or Update the IKRetargeter
 	if (SourceIKRig && TargetIKRig)
 	{
+#if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 7
+		FDazToUnrealRetarget::CreateIKRetargeter(SourceIKRig, TargetIKRig);
+#else
 		TargetSkeletalMesh->GetSkeleton()->UpdateReferencePoseFromMesh(TargetSkeletalMesh);
 		FString SourceIKRigPackagePath = SourceIKRig->GetOutermost()->GetPathName() + TEXT(".") + SourceIKRig->GetName();
 		FString TargetIKRigPackagePath = TargetIKRig->GetOutermost()->GetPathName() + TEXT(".") + TargetIKRig->GetName();
 		FString CreateIKRetargeterCommand = FString::Format(TEXT("py CreateIKRetargeter.py --sourceIKRig={0} --targetIKRig={1}"), { SourceIKRigPackagePath, TargetIKRigPackagePath });
 		UE_LOG(LogDazToUnreal, Log, TEXT("Creating IK Retargeter with command: %s"), *CreateIKRetargeterCommand);
 		GEngine->Exec(NULL, *CreateIKRetargeterCommand);
+#endif
 	}
 #endif
 }
