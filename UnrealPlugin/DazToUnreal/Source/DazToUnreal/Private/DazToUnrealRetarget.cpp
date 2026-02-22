@@ -23,6 +23,8 @@
 #include "Retargeter/RetargetOps/PelvisMotionOp.h"
 #include "Retargeter/RetargetOps/IKChainsOp.h"
 #include "Retargeter/RetargetOps/FKChainsOp.h"
+#include "Retargeter/RetargetOps/RunIKRigOp.h"
+#include "Rig/Solvers/IKRigFullBodyIK.h"
 #endif
 
 #include "DazToUnrealUtils.h"
@@ -112,6 +114,7 @@ UIKRigDefinition* FDazToUnrealRetarget::CreateIKRigForSkeletalMesh(USkeletalMesh
 	EDazRetargetCharacterType CharacterType = GetCharacterTypeFromMesh(SkeletalMesh);
 
 	FRetargetDefinition RetargetDefinition;
+	//TArray<FBoneSettingsForIK> AllBoneSettings;
 
 	switch (CharacterType)
 	{
@@ -120,7 +123,8 @@ UIKRigDefinition* FDazToUnrealRetarget::CreateIKRigForSkeletalMesh(USkeletalMesh
 		RetargetDefinition.RootBone = FName("hip");
 
 		RetargetDefinition.AddBoneChain(FName("Spine"), FName("abdomenLower"), FName("chestUpper"), NAME_None);
-		RetargetDefinition.AddBoneChain(FName("Head"), FName("neckLower"), FName("head"), NAME_None);
+		RetargetDefinition.AddBoneChain(FName("Head"), FName("head"), FName("head"), NAME_None);
+		RetargetDefinition.AddBoneChain(FName("Neck"), FName("neckLower"), FName("neckUpper"), NAME_None);
 
 		RetargetDefinition.AddBoneChain(FName("LeftArm"), FName("lShldrBend"), FName("lHand"), FName("lHand_Goal"));
 		RetargetDefinition.AddBoneChain(FName("RightArm"), FName("rShldrBend"), FName("rHand"), FName("rHand_Goal"));
@@ -157,7 +161,8 @@ UIKRigDefinition* FDazToUnrealRetarget::CreateIKRigForSkeletalMesh(USkeletalMesh
 		RetargetDefinition.RootBone = FName("hip");
 
 		RetargetDefinition.AddBoneChain(FName("Spine"), FName("spine1"), FName("spine4"), NAME_None);
-		RetargetDefinition.AddBoneChain(FName("Head"), FName("neck1"), FName("head"), NAME_None);
+		RetargetDefinition.AddBoneChain(FName("Head"), FName("head"), FName("head"), NAME_None);
+		RetargetDefinition.AddBoneChain(FName("Neck"), FName("neck1"), FName("neck2"), NAME_None);
 
 		RetargetDefinition.AddBoneChain(FName("LeftArm"), FName("l_upperarm"), FName("l_hand"), FName("l_hand_Goal"));
 		RetargetDefinition.AddBoneChain(FName("RightArm"), FName("r_upperarm"), FName("r_hand"), FName("r_hand_Goal"));
@@ -188,13 +193,15 @@ UIKRigDefinition* FDazToUnrealRetarget::CreateIKRigForSkeletalMesh(USkeletalMesh
 		RetargetDefinition.AddBoneChain(FName("RightFootIK"), FName("ik_foot_r"), FName("ik_foot_r"), NAME_None);
 
 		RetargetDefinition.AddBoneChain(FName("Root"), FName("root"), FName("root"), NAME_None);
+
 		break;
 
 	case EDazRetargetCharacterType::Mixamo:
 		RetargetDefinition.RootBone = FName("Hips");
 
 		RetargetDefinition.AddBoneChain(FName("Spine"), FName("Spine"), FName("Spine2"), NAME_None);
-		RetargetDefinition.AddBoneChain(FName("Head"), FName("Neck"), FName("Head"), NAME_None);
+		RetargetDefinition.AddBoneChain(FName("Head"), FName("Head"), FName("Head"), NAME_None);
+		RetargetDefinition.AddBoneChain(FName("Neck"), FName("Neck"), FName("Neck"), NAME_None);
 
 		RetargetDefinition.AddBoneChain(FName("LeftArm"), FName("LeftArm"), FName("LeftHand"), FName("LeftHand_Goal"));
 		RetargetDefinition.AddBoneChain(FName("RightArm"), FName("RightArm"), FName("RightHand"), FName("RightHand_Goal"));
@@ -218,8 +225,6 @@ UIKRigDefinition* FDazToUnrealRetarget::CreateIKRigForSkeletalMesh(USkeletalMesh
 		break;
 
 	default:
-		//RetargetDefinition.RootBone = FName("pelvis");
-		//RetargetDefinition.AddBoneChain(FName("Spine"), FName("spine1"), FName("spine2"), NAME_None);
 		break;
 	}
 
@@ -230,15 +235,15 @@ UIKRigDefinition* FDazToUnrealRetarget::CreateIKRigForSkeletalMesh(USkeletalMesh
 		FAutoCharacterizeResults CharacterizeResults;
 		Controller->AutoGenerateRetargetDefinition(CharacterizeResults);
 		Controller->SetRetargetDefinition(CharacterizeResults.AutoRetargetDefinition.RetargetDefinition);
+		FAutoFBIKResults AutoFBIKResults;
+		Controller->AutoGenerateFBIK(AutoFBIKResults);
 	}
 	else
 	{
+		FAutoFBIKResults AutoFBIKResults;
 		Controller->SetRetargetDefinition(RetargetDefinition);
+		FDazToUnrealRetarget::CreateFBIKSetup(*Controller, RetargetDefinition);
 	}
-
-	// Auto create the full body IK
-	FAutoFBIKResults AutoFBIKResults;
-	Controller->AutoGenerateFBIK(AutoFBIKResults);
 
 	return RigDefinition;
 #else
@@ -325,6 +330,7 @@ UIKRetargeter* FDazToUnrealRetarget::CreateIKRetargeter(UIKRigDefinition* Source
 		PelvisOp->Settings.TargetPelvisBone = GetPelvisBoneForMesh(TargetMesh);
 	}
 
+	// Map the FKChains
 	if (FIKRetargetFKChainsOp* FKChainsOp = RetargeterController->GetFirstRetargetOpOfType<FIKRetargetFKChainsOp>())
 	{
 		FKChainsOp->GetChainMapping()->ReinitializeWithIKRigs(SourceIKRig, TargetIKRig);
@@ -332,14 +338,101 @@ UIKRetargeter* FDazToUnrealRetarget::CreateIKRetargeter(UIKRigDefinition* Source
 		FKChainsOp->GetChainMapping()->AutoMapChains(EAutoMapChainType::Exact, true);
 	}
 
-	//if (FIKRetargetIKChainsOp* IKChainsOp = RetargeterController->GetFirstRetargetOpOfType<FIKRetargetIKChainsOp>())
-	//{
-	//	//IKChainsOp->GetChainMapping()->AutoMapChains(EAutoMapChainType::Exact, true);
-	//}
+	// Remove the auto added Retarget IK Goals Op (not sure why it's broken). 
+	// There's something wrong with the memory on it, so going to avoid accessing it by assuming it's the only child op
+	for (int32 OpIndex = 0; OpIndex < RetargeterController->GetNumRetargetOps(); OpIndex++)
+	{
+		if (RetargeterController->GetParentOpIndex(OpIndex) != INDEX_NONE)
+		{
+			RetargeterController->RemoveRetargetOp(OpIndex);
+			break;
+		}
+	}
 
+	if (FIKRetargetRunIKRigOp* IKChainsOp = RetargeterController->GetFirstRetargetOpOfType<FIKRetargetRunIKRigOp>())
+	{
+		IKChainsOp->GetChainMapping()->ReinitializeWithIKRigs(SourceIKRig, TargetIKRig);
+		IKChainsOp->Settings.IKRigAsset = TargetIKRig;
+		IKChainsOp->GetChainMapping()->AutoMapChains(EAutoMapChainType::Exact, true);
+		IKChainsOp->SetEnabled(false);
+
+		const int32 RunIKIndex = RetargeterController->GetIndexOfRetargetOp(IKChainsOp);
+		const FName RunIKOpName = RetargeterController->GetOpName(RunIKIndex);
+		RetargeterController->AddRetargetOp(FIKRetargetIKChainsOp::StaticStruct(), RunIKOpName);
+
+		if (FIKRetargetIKChainsOp* IKGoalsOp = RetargeterController->GetFirstRetargetOpOfType<FIKRetargetIKChainsOp>())
+		{
+			for (auto& ChainSettings : IKGoalsOp->Settings.ChainsToRetarget)
+			{
+				ChainSettings.BlendToSource = 1.0f;
+			}
+		}
+	}
+
+	// Auto align the bones
+	RetargeterController->AutoAlignAllBones(ERetargetSourceOrTarget::Target, ERetargetAutoAlignMethod::ChainToChain);
 
 	return Retargeter;
 #else
 	return nullptr;
 #endif
+}
+
+// This is a slightly modified partial duplicate of FAutoFBIKCreator::CreateFBIKSetup which isn't accessible
+void FDazToUnrealRetarget::CreateFBIKSetup(const UIKRigController& IKRigController, const FRetargetDefinition& RetargetDefinition)
+{
+	// ensure we have a mesh to operate on
+	USkeletalMesh* Mesh = IKRigController.GetSkeletalMesh();
+	if (!Mesh)
+	{
+		return;
+	}
+
+	// create all the goals in the template
+	TArray<FName> GoalNames;
+	const TArray<FBoneChain>& ExpectedChains = RetargetDefinition.BoneChains;
+	for (const FBoneChain& ExpectedChain : ExpectedChains)
+	{
+		if (ExpectedChain.IKGoalName == NAME_None)
+		{
+			continue;
+		}
+
+		const FBoneChain* Chain = IKRigController.GetRetargetChainByName(ExpectedChain.ChainName);
+		FName GoalName = (Chain && Chain->IKGoalName != NAME_None) ? Chain->IKGoalName : ExpectedChain.IKGoalName;
+		const UIKRigEffectorGoal* ChainGoal = IKRigController.GetGoal(GoalName);
+		if (!ChainGoal)
+		{
+			// create new goal
+			GoalName = IKRigController.AddNewGoal(GoalName, ExpectedChain.EndBone.BoneName);
+			if (Chain)
+			{
+				IKRigController.SetRetargetChainGoal(Chain->ChainName, GoalName);
+			}
+		}
+
+		GoalNames.Add(GoalName);
+	}
+
+	// create IK solver and attach all the goals to it
+	const int32 SolverIndex = IKRigController.AddSolver(FIKRigFullBodyIKSolver::StaticStruct());
+	for (const FName& GoalName : GoalNames)
+	{
+		IKRigController.ConnectGoalToSolver(GoalName, SolverIndex);
+	}
+
+	// set the root of the solver
+	const bool bSetRoot = IKRigController.SetStartBone(RetargetDefinition.RootBone, SolverIndex);
+	if (!bSetRoot)
+	{
+		//Results.Outcome = EAutoFBIKResult::MissingRootBone;
+		return;
+	}
+
+	// update solver settings for retargeting
+	FIKRigFullBodyIKSolver* Solver = static_cast<FIKRigFullBodyIKSolver*>(IKRigController.GetSolverAtIndex(SolverIndex));
+	// set the root behavior to "free", allows pelvis motion only when needed to reach goals
+	Solver->Settings.RootBehavior = EPBIKRootBehavior::Free;
+	// removing pull chain alpha on all goals "calms" the motion down, especially when retargeting arms
+	Solver->Settings.GlobalPullChainAlpha = 0.0f;
 }
