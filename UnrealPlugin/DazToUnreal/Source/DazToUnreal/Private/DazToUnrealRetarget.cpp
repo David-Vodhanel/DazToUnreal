@@ -381,6 +381,7 @@ UIKRetargeter* FDazToUnrealRetarget::CreateIKRetargeter(UIKRigDefinition* Source
 // This is a slightly modified partial duplicate of FAutoFBIKCreator::CreateFBIKSetup which isn't accessible
 void FDazToUnrealRetarget::CreateFBIKSetup(const UIKRigController& IKRigController, const FRetargetDefinition& RetargetDefinition)
 {
+#if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 7
 	// ensure we have a mesh to operate on
 	USkeletalMesh* Mesh = IKRigController.GetSkeletalMesh();
 	if (!Mesh)
@@ -435,4 +436,5 @@ void FDazToUnrealRetarget::CreateFBIKSetup(const UIKRigController& IKRigControll
 	Solver->Settings.RootBehavior = EPBIKRootBehavior::Free;
 	// removing pull chain alpha on all goals "calms" the motion down, especially when retargeting arms
 	Solver->Settings.GlobalPullChainAlpha = 0.0f;
+#endif
 }
