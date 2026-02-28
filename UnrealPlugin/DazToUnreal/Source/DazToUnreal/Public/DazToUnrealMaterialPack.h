@@ -16,7 +16,8 @@ enum class EDazMaterialType : uint8
 	Scalp,
 	EyeMoisture,
 	Cornea,
-	NoDraw
+	NoDraw,
+	Eyes
 };
 
 USTRUCT(BlueprintType)
