@@ -1,4 +1,5 @@
 #include "DazToUnrealBlueprintUtils.h"
+#include "DazToUnrealSettings.h"
 #include "ReferenceSkeleton.h"
 #include "Animation/Skeleton.h"
 #include "AssetNotifications.h"
@@ -105,6 +106,16 @@ FName UDazToUnrealBlueprintUtils::GetJointBone(const class USkeleton* Skeleton, 
 void UDazToUnrealBlueprintUtils::ConvertToEpicSkeleton(USkeletalMesh* SkeletalMesh, USkeletalMesh* TargetEpicSkeleton)
 {
 #if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION > 3
+	if (!TargetEpicSkeleton)
+	{
+		// Check the plugin settings first
+		const UDazToUnrealSettings* Settings = GetDefault<UDazToUnrealSettings>();
+		if (Settings && !Settings->EpicSkeletonMesh.IsNull())
+		{
+			TargetEpicSkeleton = Cast<USkeletalMesh>(Settings->EpicSkeletonMesh.TryLoad());
+		}
+	}
+
 	if (!TargetEpicSkeleton)
 	{
 		// Find all SkeletalMeshes

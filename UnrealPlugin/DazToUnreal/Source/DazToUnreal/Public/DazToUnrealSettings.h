@@ -170,6 +170,10 @@ public:
 	UPROPERTY(config, EditAnywhere, Category = SkeletonSettings)
 		bool AddIKBones;
 
+	/** Target skeletal mesh to use when converting to Epic Skeleton. If not set, defaults to SKM_Quinn if present in the project. */
+	UPROPERTY(config, EditAnywhere, Category = SkeletonSettings, meta = (AllowedClasses = "/Script/Engine.SkeletalMesh"))
+		FSoftObjectPath EpicSkeletonMesh;
+
 	/** Material Packs to use.  Order matters, first matching material will be used.*/
 	UPROPERTY(config, EditAnywhere, Category = MaterialSettings, meta = (AllowedClasses = "/Script/DazToUnreal.DazToUnrealMaterialPack"))
 		TArray<FSoftObjectPath> MaterialPacks;
@@ -308,7 +312,7 @@ public:
 			if (ShaderName.Compare(TEXT("PBRSkin")) == 0) return FSoftObjectPath(TEXT("/DazToUnreal/BasePBRSkinMaterial.BasePBRSkinMaterial"));
 		}
 
-		if(MaterialType == EDazMaterialType::Base) return FSoftObjectPath(TEXT("/DazToUnreal/BaseMaterial.BaseMaterial"));
+		if (MaterialType == EDazMaterialType::Base) return FSoftObjectPath(TEXT("/DazToUnreal/BaseMaterial.BaseMaterial"));
 		if (MaterialType == EDazMaterialType::Alpha) return FSoftObjectPath(TEXT("/DazToUnreal/BaseAlphaMaterial.BaseAlphaMaterial"));
 		if (MaterialType == EDazMaterialType::Masked) return FSoftObjectPath(TEXT("/DazToUnreal/BaseMaskedMaterial.BaseMaskedMaterial"));
 		if (MaterialType == EDazMaterialType::Skin) return FSoftObjectPath(TEXT("/DazToUnreal/BaseSSSSkinMaterial.BaseSSSSkinMaterial"));
@@ -317,6 +321,7 @@ public:
 		if (MaterialType == EDazMaterialType::EyeMoisture) return FSoftObjectPath(TEXT("/DazToUnreal/BaseAlphaMaterial.BaseAlphaMaterial"));
 		if (MaterialType == EDazMaterialType::Cornea) return FSoftObjectPath(TEXT("/DazToUnreal/BaseAlphaMaterial.BaseAlphaMaterial"));
 		if (MaterialType == EDazMaterialType::NoDraw) return FSoftObjectPath(TEXT("/DazToUnreal/NoDrawMaterial.NoDrawMaterial"));
+		if (MaterialType == EDazMaterialType::Eyes) return FSoftObjectPath(TEXT("/DazToUnreal/BasePBRSkinMaterial.BasePBRSkinMaterial"));
 
 		// Fall back to a known default if nothing else was found.
 		return FSoftObjectPath(TEXT("/DazToUnreal/BaseMaterial.BaseMaterial"));
