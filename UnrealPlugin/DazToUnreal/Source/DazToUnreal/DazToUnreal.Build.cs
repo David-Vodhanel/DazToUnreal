@@ -41,7 +41,8 @@ public class DazToUnreal : ModuleRules
 				"ControlRigDeveloper",
 				"ToolMenus",
 				"ContentBrowser",
-				// ... add private dependencies that you statically link with here ...	
+				"MaterialEditor",
+				// ... add private dependencies that you statically link with here ...
 			}
 			);
 

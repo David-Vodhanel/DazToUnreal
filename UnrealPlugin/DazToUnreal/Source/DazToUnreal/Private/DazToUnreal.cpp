@@ -1,5 +1,6 @@
 #include "DazToUnreal.h"
 #include "DazToUnrealSettings.h"
+#include "DazToUnrealMaterialBuilder.h"
 #include "DazToUnrealStyle.h"
 #include "DazToUnrealCommands.h"
 #include "DazToUnrealMaterials.h"
@@ -223,6 +224,13 @@ void FDazToUnrealModule::StartupModule()
 	{
 		BatchConversionMode = 0;
 	}
+	// Build/update generated base materials once the asset registry has scanned all packages.
+	// Using OnFilesLoaded defers the work until it's safe to create assets.
+	FAssetRegistryModule& AssetRegistryModule =
+		FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+	AssetRegistryModule.Get().OnFilesLoaded().AddStatic(
+		&FDazToUnrealMaterialBuilder::BuildOutdatedMaterials);
+
 	StartupUDPListener();
 }
 

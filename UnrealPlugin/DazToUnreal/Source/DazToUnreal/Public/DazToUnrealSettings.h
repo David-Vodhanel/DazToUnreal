@@ -3,6 +3,7 @@
 #include "Engine/DeveloperSettings.h"
 #include "Engine/EngineTypes.h"
 #include "UObject/SoftObjectPath.h"
+#include "Misc/PackageName.h"
 #include "DazToUnrealMaterialPack.h"
 #include "DazToUnrealSettings.generated.h"
 
@@ -75,6 +76,9 @@ public:
 
 		DefaultSkinDiffuseSubsurfaceColorWeight = 0.5f;
 		DefaultEyeMoistureOpacity = 0.01f;
+		DefaultCavityStrength = 0.5f;
+
+		GeneratedMaterialsFolder.Path = TEXT("/Game/DazToUnreal/Common");
 
 		CharacterTypeMapping.Add(TEXT("Genesis3Male"), TEXT("Genesis3"));
 		CharacterTypeMapping.Add(TEXT("Genesis3Female"), TEXT("Genesis3"));
@@ -190,6 +194,43 @@ public:
 	UPROPERTY(config, EditAnywhere, Category = MaterialSettings)
 		float DefaultEyeMoistureOpacity;
 
+	/** Cavity darkening intensity for skin materials. Derived procedurally from the normal map Z channel.
+	 *  0 = no cavity effect, 1 = full darkening in creases and pores. */
+	UPROPERTY(config, EditAnywhere, Category = MaterialSettings, meta = (ClampMin = "0.0", ClampMax = "1.0"))
+		float DefaultCavityStrength;
+
+	/** Enable procedurally-generated base materials (BasePBRSkinMaterial, etc.).
+	 *  When enabled, materials are built from C++ at editor startup and used in place
+	 *  of the bundled plugin .uasset materials. Includes detail normal tiling,
+	 *  cavity maps, and improved subsurface profile defaults. */
+	UPROPERTY(config, EditAnywhere, Category = MaterialSettings, meta = (ConfigRestartRequired = true))
+		bool bUseGeneratedBaseMaterials = false;
+
+	/** Folder where procedurally-generated base materials are saved.
+	 *  These are built from C++ at editor startup so they are always version-native.
+	 *  Defaults to /Game/DazToUnreal/Common (project content directory). */
+	UPROPERTY(config, EditAnywhere, Category = MaterialSettings, meta = (EditCondition = "bUseGeneratedBaseMaterials"))
+		FDirectoryPath GeneratedMaterialsFolder;
+
+	/** Returns the full FSoftObjectPath for a generated material if it exists on disk,
+	 *  or a null path if it has not been built yet. */
+	FSoftObjectPath GetGeneratedMaterialPath(const FString& AssetName) const
+	{
+		if (!bUseGeneratedBaseMaterials)
+		{
+			return FSoftObjectPath();
+		}
+		const FString& Folder = GeneratedMaterialsFolder.Path.IsEmpty()
+			? FString(TEXT("/Game/DazToUnreal/Common"))
+			: GeneratedMaterialsFolder.Path;
+		const FString PackagePath = Folder / AssetName;
+		if (FPackageName::DoesPackageExist(PackagePath))
+		{
+			return FSoftObjectPath(*(PackagePath + TEXT(".") + AssetName));
+		}
+		return FSoftObjectPath();
+	}
+
 	/** Use Original Name of Material */
 	UPROPERTY(config, EditAnywhere, Category = MaterialSettings)
 		bool UseOriginalMaterialName;
@@ -300,7 +341,12 @@ public:
 			if (ShaderName.Compare(TEXT("omUberSurface")) == 0) return FSoftObjectPath(TEXT("/DazToUnreal/omUberBaseMaterial.omUberBaseMaterial"));
 			if (ShaderName.Compare(TEXT("AoA_Subsurface")) == 0) return FSoftObjectPath(TEXT("/DazToUnreal/AoASubsurfaceBaseMaterial.AoASubsurfaceBaseMaterial"));
 			if (ShaderName.Compare(TEXT("Iray Uber")) == 0) return FSoftObjectPath(TEXT("/DazToUnreal/IrayUberBaseMaterial.IrayUberBaseMaterial"));
-			if (ShaderName.Compare(TEXT("PBRSkin")) == 0) return FSoftObjectPath(TEXT("/DazToUnreal/BasePBRSkinMaterial.BasePBRSkinMaterial"));
+			if (ShaderName.Compare(TEXT("PBRSkin")) == 0)
+			{
+				FSoftObjectPath Generated = GetGeneratedMaterialPath(TEXT("BasePBRSkinMaterial"));
+				if (!Generated.IsNull()) return Generated;
+				return FSoftObjectPath(TEXT("/DazToUnreal/BasePBRSkinMaterial.BasePBRSkinMaterial"));
+			}
 		}
 
 		if (MaterialType == EDazMaterialType::Skin)
@@ -309,7 +355,12 @@ public:
 			if (ShaderName.Compare(TEXT("omUberSurface")) == 0) return FSoftObjectPath(TEXT("/DazToUnreal/omUberSkinMaterial.omUberSkinMaterial"));
 			if (ShaderName.Compare(TEXT("AoA_Subsurface")) == 0) return FSoftObjectPath(TEXT("/DazToUnreal/AoASubsurfaceSkinMaterial.AoASubsurfaceSkinMaterial"));
 			if (ShaderName.Compare(TEXT("Iray Uber")) == 0) return FSoftObjectPath(TEXT("/DazToUnreal/IrayUberSkinMaterial.IrayUberSkinMaterial"));
-			if (ShaderName.Compare(TEXT("PBRSkin")) == 0) return FSoftObjectPath(TEXT("/DazToUnreal/BasePBRSkinMaterial.BasePBRSkinMaterial"));
+			if (ShaderName.Compare(TEXT("PBRSkin")) == 0)
+			{
+				FSoftObjectPath Generated = GetGeneratedMaterialPath(TEXT("BasePBRSkinMaterial"));
+				if (!Generated.IsNull()) return Generated;
+				return FSoftObjectPath(TEXT("/DazToUnreal/BasePBRSkinMaterial.BasePBRSkinMaterial"));
+			}
 		}
 
 		if (MaterialType == EDazMaterialType::Base) return FSoftObjectPath(TEXT("/DazToUnreal/BaseMaterial.BaseMaterial"));

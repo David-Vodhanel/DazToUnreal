@@ -298,6 +298,7 @@ UMaterialInstanceConstant* FDazToUnrealMaterials::CreateMaterial(const FString C
 		MaterialName.Contains(Seperator + TEXT("Genitalia")))
 	{
 		SetMaterialProperty(MaterialName, TEXT("Subsurface Alpha Texture"), TEXT("Texture"), FDazToUnrealTextures::GetSubSurfaceAlphaTexture(CharacterType, MaterialName), MaterialProperties);
+		SetMaterialProperty(MaterialName, TEXT("Cavity Strength"), TEXT("Double"), FString::SanitizeFloat(CachedSettings->DefaultCavityStrength), MaterialProperties);
 	}
 	else if (AssetType == TEXT("Actor/Character"))
 	{
@@ -317,6 +318,7 @@ UMaterialInstanceConstant* FDazToUnrealMaterials::CreateMaterial(const FString C
 		{
 			SetMaterialProperty(MaterialName, TEXT("Diffuse Subsurface Color Weight"), TEXT("Double"), FString::SanitizeFloat(CachedSettings->DefaultSkinDiffuseSubsurfaceColorWeight), MaterialProperties);
 			SetMaterialProperty(MaterialName, TEXT("Subsurface Alpha Texture"), TEXT("Texture"), FDazToUnrealTextures::GetSubSurfaceAlphaTexture(CharacterType, MaterialName), MaterialProperties);
+			SetMaterialProperty(MaterialName, TEXT("Cavity Strength"), TEXT("Double"), FString::SanitizeFloat(CachedSettings->DefaultCavityStrength), MaterialProperties);
 		}
 		else if (MaterialName.Contains(Seperator + TEXT("EyeMoisture")))
 		{
@@ -501,6 +503,7 @@ void FDazToUnrealMaterials::CorrectDazShaders(FString MaterialName, TMap<FString
 		return;
 	}
 
+	const UDazToUnrealSettings* CachedSettings = GetDefault<UDazToUnrealSettings>();
 	FString ShaderName = MaterialProperties[MaterialName][0].ShaderName;
 	FString sMaterialAssetName = MaterialProperties[MaterialName][0].MaterialAssetName;
 
@@ -593,6 +596,54 @@ void FDazToUnrealMaterials::CorrectDazShaders(FString MaterialName, TMap<FString
 	// Place holder for Material-specific corections
 	//
 
+	////////////////////////////////////////////////////////
+	// PBRSkin Detail Normal Map Corrections
+	//
+	// Daz sends "Detail Enable" as Double (0/1) but our
+	// BasePBRSkinMaterial uses a StaticSwitchParameter.
+	// Convert it to Switch type so the import pipeline
+	// can activate the detail normal path.
+	//
+	// Also handle "Detail Normal Map Mode":
+	//   Mode 0 = reuse base Normal Map texture (tiled)
+	//   Mode 1 = use separate Detail Normal Map texture
+	////////////////////////////////////////////////////////
+	if (ShaderName == TEXT("PBRSkin") && CachedSettings->bUseGeneratedBaseMaterials)
+	{
+		TArray<FDUFTextureProperty>& Props = MaterialProperties[MaterialName];
+
+		// Handle Detail Normal Map Mode:
+		//   Mode 0 = reuse base Normal Map texture (tiled)
+		//   Mode 1 = use separate Detail Normal Map texture
+		if (HasMaterialProperty(TEXT("Detail Normal Map Mode"), Props))
+		{
+			int32 Mode = FCString::Atoi(*GetMaterialProperty(TEXT("Detail Normal Map Mode"), Props));
+			if (Mode == 0 && HasMaterialProperty(TEXT("Normal Map Texture"), Props))
+			{
+				FString BaseNormalTexture = GetMaterialProperty(TEXT("Normal Map Texture"), Props);
+				SetMaterialProperty(MaterialName, TEXT("Detail Normal Map Texture"),
+					TEXT("Texture"), BaseNormalTexture, MaterialProperties);
+			}
+		}
+
+		// Enable "Detail Enable" static switch.
+		// Daz sends this as Double (0/1) but our material uses a StaticSwitchParameter.
+		// Also auto-enable when a Detail Normal Map Texture is present, even if
+		// Detail Enable is missing or set to 0 — the texture's existence is the
+		// strongest signal that detail normals should be active.
+		bool bDetailEnabled = false;
+		if (HasMaterialProperty(TEXT("Detail Enable"), Props))
+		{
+			bDetailEnabled = FCString::Atof(*GetMaterialProperty(TEXT("Detail Enable"), Props)) > 0.5;
+		}
+		if (!bDetailEnabled && HasMaterialProperty(TEXT("Detail Normal Map Texture"), Props))
+		{
+			bDetailEnabled = true;
+		}
+		SetMaterialProperty(MaterialName, TEXT("Detail Enable"), TEXT("Switch"),
+			bDetailEnabled ? TEXT("true") : TEXT("false"), MaterialProperties);
+	}
+
 }
 
 void FDazToUnrealMaterials::SetMaterialProperty(const FString& MaterialName, const FString& PropertyName, const FString& PropertyType, const FString& PropertyValue, TMap<FString, TArray<FDUFTextureProperty>>& MaterialProperties)
@@ -606,6 +657,7 @@ void FDazToUnrealMaterials::SetMaterialProperty(const FString& MaterialName, con
 	{
 		if (Property.Name == PropertyName)
 		{
+			Property.Type = PropertyType;
 			Property.Value = PropertyValue;
 			return;
 		}
@@ -831,13 +883,25 @@ USubsurfaceProfile* FDazToUnrealMaterials::CreateSubsurfaceProfileForMaterial(co
 		FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
 		SubsurfaceProfile = Cast<USubsurfaceProfile>(AssetToolsModule.Get().CreateAsset(SubsurfaceProfileName, FPackageName::GetLongPackagePath(*(CharacterMaterialFolder / MaterialName)), USubsurfaceProfile::StaticClass(), NULL));
 	}
+	// Roughness0: clamp Daz specular lobe 1 into a range that looks good under UE SSS
 	if (HasMaterialProperty(TEXT("Specular Lobe 1 Roughness"), MaterialProperties))
 	{
-		SubsurfaceProfile->Settings.Roughness0 = FCString::Atof(*GetMaterialProperty(TEXT("Specular Lobe 1 Roughness"), MaterialProperties));
+		float R0 = FCString::Atof(*GetMaterialProperty(TEXT("Specular Lobe 1 Roughness"), MaterialProperties));
+		SubsurfaceProfile->Settings.Roughness0 = FMath::Clamp(R0, 0.35f, 0.75f);
 	}
+	else
+	{
+		SubsurfaceProfile->Settings.Roughness0 = 0.75f;
+	}
+	// Roughness1: clamp Daz specular lobe 2 multiplier
 	if (HasMaterialProperty(TEXT("Specular Lobe 2 Roughness Mult"), MaterialProperties))
 	{
-		SubsurfaceProfile->Settings.Roughness1 = FCString::Atof(*GetMaterialProperty(TEXT("Specular Lobe 2 Roughness Mult"), MaterialProperties));
+		float R1 = FCString::Atof(*GetMaterialProperty(TEXT("Specular Lobe 2 Roughness Mult"), MaterialProperties));
+		SubsurfaceProfile->Settings.Roughness1 = FMath::Clamp(R1, 0.20f, 0.45f);
+	}
+	else
+	{
+		SubsurfaceProfile->Settings.Roughness1 = 0.35f;
 	}
 	if (HasMaterialProperty(TEXT("Dual Lobe Specular Ratio"), MaterialProperties))
 	{
@@ -847,14 +911,16 @@ USubsurfaceProfile* FDazToUnrealMaterials::CreateSubsurfaceProfileForMaterial(co
 	{
 		SubsurfaceProfile->Settings.SubsurfaceColor = FColor::FromHex(*GetMaterialProperty(TEXT("SSS Color"), MaterialProperties));
 	}
-	if (HasMaterialProperty(TEXT("SSS Color"), MaterialProperties))
-	{
-		SubsurfaceProfile->Settings.SubsurfaceColor = FColor::FromHex(*GetMaterialProperty(TEXT("SSS Color"), MaterialProperties));
-	}
 	if (HasMaterialProperty(TEXT("Transmitted Color"), MaterialProperties))
 	{
 		SubsurfaceProfile->Settings.FalloffColor = FColor::FromHex(*GetMaterialProperty(TEXT("Transmitted Color"), MaterialProperties));
 	}
+	// ScatterRadius must be > 0 for subsurface scattering to be visible in UE.
+	// Daz's "Scattering Measurement Distance" (0.015 cm) uses a different SSS model
+	// and is too small for UE's world-scale units. Use a fixed value that gives
+	// natural skin translucency under typical UE lighting.
+	SubsurfaceProfile->Settings.ScatterRadius = 1.2f;
+	SubsurfaceProfile->Settings.IOR = 1.4f;
 	return SubsurfaceProfile;
 }
 
