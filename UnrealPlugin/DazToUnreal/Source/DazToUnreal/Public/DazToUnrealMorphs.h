@@ -2,9 +2,9 @@
 
 #include "CoreMinimal.h"
 #include "DazToUnrealEnums.h"
-#include "Dom/JsonObject.h"
-#include "Animation/AnimInstance.h"
 
+class FJsonObject;
+class UAnimBlueprint;
 class UAnimInstance;
 class USkeleton;
 class USkeletalMesh;

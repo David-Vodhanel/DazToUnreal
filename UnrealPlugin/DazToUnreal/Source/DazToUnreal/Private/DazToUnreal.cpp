@@ -1,4 +1,6 @@
 #include "DazToUnreal.h"
+#include "Common/UdpSocketBuilder.h"
+#include "Framework/Commands/UICommandList.h"
 #include "DazToUnrealSettings.h"
 #include "DazToUnrealMaterialBuilder.h"
 #include "DazToUnrealStyle.h"
@@ -35,7 +37,6 @@
 #include "AssetToolsModule.h"
 #include "EditorAssetLibrary.h"
 #include "PackageTools.h"
-#include "ObjectTools.h"
 #include "Factories/FbxFactory.h"
 #include "Factories/FbxImportUI.h"
 #include "FbxImporter.h"
@@ -47,7 +48,6 @@
 #include "ContentBrowserModule.h"
 #include "IContentBrowserSingleton.h"
 #include "Misc/MessageDialog.h"
-#include "EditorAssetLibrary.h"
 #include "Misc/EngineVersion.h"
 #include "Engine/SkeletalMesh.h"
 #include "Animation/AnimInstance.h"
@@ -179,14 +179,14 @@ void FDazToUnrealModule::StartupModule()
 	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
 
 	{
-		TSharedPtr<FExtender> MenuExtender = MakeShareable(new FExtender());
+		MenuExtender = MakeShareable(new FExtender());
 		MenuExtender->AddMenuExtension("WindowLayout", EExtensionHook::After, PluginCommands, FMenuExtensionDelegate::CreateRaw(this, &FDazToUnrealModule::AddMenuExtension));
 
 		LevelEditorModule.GetMenuExtensibilityManager()->AddExtender(MenuExtender);
 	}
 
 	{
-		TSharedPtr<FExtender> ToolbarExtender = MakeShareable(new FExtender);
+		ToolbarExtender = MakeShareable(new FExtender);
 		ToolbarExtender->AddToolBarExtension("Settings", EExtensionHook::After, PluginCommands, FToolBarExtensionDelegate::CreateRaw(this, &FDazToUnrealModule::AddToolbarExtension));
 
 
@@ -203,12 +203,16 @@ void FDazToUnrealModule::StartupModule()
 		}
 	}
 
-	AddCreateRetargeterMenu();
-	AddCreateFullBodyIKControlRigMenu();
-	AddCreateIKLimbBasedControlRigMenu();
+	if (!bContextMenusRegistered)
+	{
+		AddCreateRetargeterMenu();
+		AddCreateFullBodyIKControlRigMenu();
+		AddCreateIKLimbBasedControlRigMenu();
 #if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION > 3
-	AddConvertToEpicSkeletonMenu();
+		AddConvertToEpicSkeletonMenu();
 #endif
+		bContextMenusRegistered = true;
+	}
 
 	/*FGlobalTabmanager::Get()->RegisterNomadTabSpawner(DazToUnrealTabName, FOnSpawnTab::CreateRaw(this, &FDazToUnrealModule::OnSpawnPluginTab))
 		.SetDisplayName(LOCTEXT("FDazToUnrealTabTitle", "DazToUnreal"))
@@ -228,7 +232,7 @@ void FDazToUnrealModule::StartupModule()
 	// Using OnFilesLoaded defers the work until it's safe to create assets.
 	FAssetRegistryModule& AssetRegistryModule =
 		FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
-	AssetRegistryModule.Get().OnFilesLoaded().AddStatic(
+	OnFilesLoadedHandle = AssetRegistryModule.Get().OnFilesLoaded().AddStatic(
 		&FDazToUnrealMaterialBuilder::BuildOutdatedMaterials);
 
 	StartupUDPListener();
@@ -238,6 +242,38 @@ void FDazToUnrealModule::ShutdownModule()
 {
 	 // This function may be called during shutdown to clean up your module.  For modules that support dynamic reloading,
 	 // we call this function before unloading the module.
+	 ShutdownUDPListener();
+
+	 // Remove menu and toolbar extenders
+	 if (FModuleManager::Get().IsModuleLoaded("LevelEditor"))
+	 {
+		  FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>("LevelEditor");
+		  if (MenuExtender.IsValid())
+		  {
+				LevelEditorModule.GetMenuExtensibilityManager()->RemoveExtender(MenuExtender);
+				MenuExtender.Reset();
+		  }
+		  if (ToolbarExtender.IsValid())
+		  {
+				LevelEditorModule.GetToolBarExtensibilityManager()->RemoveExtender(ToolbarExtender);
+				ToolbarExtender.Reset();
+		  }
+	 }
+
+	 // Unbind OnFilesLoaded delegate
+	 if (OnFilesLoadedHandle.IsValid())
+	 {
+		  if (FModuleManager::Get().IsModuleLoaded("AssetRegistry"))
+		  {
+				FAssetRegistryModule& AssetRegistryModule = FModuleManager::GetModuleChecked<FAssetRegistryModule>("AssetRegistry");
+				AssetRegistryModule.Get().OnFilesLoaded().Remove(OnFilesLoadedHandle);
+		  }
+		  OnFilesLoadedHandle.Reset();
+	 }
+
+	 // Reset context menu flag so they can be re-registered on next startup
+	 bContextMenusRegistered = false;
+
 	 FDazToUnrealStyle::Shutdown();
 
 	 FDazToUnrealCommands::Unregister();
@@ -304,6 +340,9 @@ TSharedRef<SWidget> FDazToUnrealModule::MakeDazToUnrealToolbarMenu(TSharedPtr<FU
 
 void FDazToUnrealModule::StartupUDPListener()
 {
+	 // Guard against double-init: shut down any existing listener first
+	 ShutdownUDPListener();
+
 	 const UDazToUnrealSettings* CachedSettings = GetDefault<UDazToUnrealSettings>();
 
 	 FIPv4Endpoint Endpoint(FIPv4Address::InternalLoopback, CachedSettings->Port);
@@ -321,9 +360,25 @@ void FDazToUnrealModule::StartupUDPListener()
 }
 void FDazToUnrealModule::ShutdownUDPListener()
 {
+	 // Remove the tick delegate first so Tick() won't fire on a closed socket
+#if ENGINE_MAJOR_VERSION > 4
+	 if (TickDelegateHandle.IsValid())
+	 {
+		  FTSTicker::GetCoreTicker().RemoveTicker(TickDelegateHandle);
+		  TickDelegateHandle.Reset();
+	 }
+#else
+	 if (TickDelegateHandle.IsValid())
+	 {
+		  FTicker::GetCoreTicker().RemoveTicker(TickDelegateHandle);
+		  TickDelegateHandle.Reset();
+	 }
+#endif
+
 	 if (ServerSocket != nullptr)
 	 {
 		  ServerSocket->Close();
+		  ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->DestroySocket(ServerSocket);
 		  ServerSocket = nullptr;
 	 }
 }

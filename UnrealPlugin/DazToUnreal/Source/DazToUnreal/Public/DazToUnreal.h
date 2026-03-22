@@ -2,17 +2,18 @@
 
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
-#include "Common/UdpSocketBuilder.h"
 #include "Containers/Ticker.h"
 #include "Widgets/SWidget.h"
-#include "Framework/Commands/UICommandList.h"
 
 #include "DazToUnrealEnums.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogDazToUnreal, Log, All);
 
+class FExtender;
+class FSocket;
 class FToolBarBuilder;
 class FMenuBuilder;
+class FUICommandList;
 struct FDUFTextureProperty;
 
 struct TextureLookupInfo
@@ -105,7 +106,17 @@ private:
 	void OnConvertToEpicSkeletonClicked(FSoftObjectPath EpicMeshObjectPath, class USkeletalMesh* SkeletalMeshToUpdate);
 
 private:
-	TSharedPtr<class FUICommandList> PluginCommands;
+	TSharedPtr<FUICommandList> PluginCommands;
+
+	/** Stored so we can remove them on shutdown */
+	TSharedPtr<FExtender> MenuExtender;
+	TSharedPtr<FExtender> ToolbarExtender;
+
+	/** Handle for OnFilesLoaded delegate so we can unbind on shutdown */
+	FDelegateHandle OnFilesLoadedHandle;
+
+	/** Whether context menu entries have already been registered */
+	bool bContextMenusRegistered = false;
 
 	// Network listener functions
 private:
