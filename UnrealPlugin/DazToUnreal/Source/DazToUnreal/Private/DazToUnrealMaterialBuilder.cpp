@@ -98,8 +98,14 @@ bool FDazToUnrealMaterialBuilder::IsCurrentVersion(UMaterial* Material)
 	if (!IsValid(Material)) return false;
 	UPackage* Package = Material->GetPackage();
 	if (!Package) return false;
+#if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 6
 	FMetaData& Meta = Package->GetMetaData();
 	const FString Stored = Meta.GetValue(Material, BUILDER_VERSION_KEY);
+#else
+	UMetaData* Meta = Package->GetMetaData();
+	if (!Meta) return false;
+	const FString Stored = Meta->GetValue(Material, BUILDER_VERSION_KEY);
+#endif
 	return !Stored.IsEmpty() && FCString::Atoi(*Stored) >= MATERIAL_BUILDER_VERSION;
 }
 
@@ -108,8 +114,14 @@ void FDazToUnrealMaterialBuilder::StampVersion(UMaterial* Material)
 	if (!IsValid(Material)) return;
 	UPackage* Package = Material->GetPackage();
 	if (!Package) return;
+#if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 6
 	FMetaData& Meta = Package->GetMetaData();
 	Meta.SetValue(Material, BUILDER_VERSION_KEY, *FString::FromInt(MATERIAL_BUILDER_VERSION));
+#else
+	UMetaData* Meta = Package->GetMetaData();
+	if (!Meta) return;
+	Meta->SetValue(Material, BUILDER_VERSION_KEY, *FString::FromInt(MATERIAL_BUILDER_VERSION));
+#endif
 }
 
 // ---------------------------------------------------------------------------
@@ -151,9 +163,13 @@ void FDazToUnrealMaterialBuilder::SaveAndNotify(UMaterial* Material)
 	const FString PackageFileName = FPackageName::LongPackageNameToFilename(
 		Package->GetName(), FPackageName::GetAssetPackageExtension());
 
+#if ENGINE_MAJOR_VERSION >= 5
 	FSavePackageArgs SaveArgs;
 	SaveArgs.TopLevelFlags = RF_Public | RF_Standalone;
 	UPackage::SavePackage(Package, nullptr, *PackageFileName, SaveArgs);
+#else
+	UPackage::SavePackage(Package, nullptr, RF_Public | RF_Standalone, *PackageFileName);
+#endif
 
 	// Notify the asset registry so the new asset appears in the Content Browser
 	FAssetRegistryModule& Registry =
