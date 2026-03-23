@@ -642,6 +642,30 @@ void FDazToUnrealMaterials::CorrectDazShaders(FString MaterialName, TMap<FString
 		}
 		SetMaterialProperty(MaterialName, TEXT("Detail Enable"), TEXT("Switch"),
 			bDetailEnabled ? TEXT("true") : TEXT("false"), MaterialProperties);
+
+		// Convert "Makeup Enable" from Double (0/1) to Switch (true/false)
+		if (HasMaterialProperty(TEXT("Makeup Enable"), Props))
+		{
+			bool bEnabled = FCString::Atof(*GetMaterialProperty(TEXT("Makeup Enable"), Props)) > 0.5;
+			SetMaterialProperty(MaterialName, TEXT("Makeup Enable"), TEXT("Switch"),
+				bEnabled ? TEXT("true") : TEXT("false"), MaterialProperties);
+		}
+
+		// Convert "Top Coat Enable" from Double (0/1) to Switch (true/false)
+		if (HasMaterialProperty(TEXT("Top Coat Enable"), Props))
+		{
+			bool bEnabled = FCString::Atof(*GetMaterialProperty(TEXT("Top Coat Enable"), Props)) > 0.5;
+			SetMaterialProperty(MaterialName, TEXT("Top Coat Enable"), TEXT("Switch"),
+				bEnabled ? TEXT("true") : TEXT("false"), MaterialProperties);
+		}
+
+		// Convert "Specular Occlusion Enable" from Double (0/1) to Switch (true/false)
+		if (HasMaterialProperty(TEXT("Specular Occlusion Enable"), Props))
+		{
+			bool bEnabled = FCString::Atof(*GetMaterialProperty(TEXT("Specular Occlusion Enable"), Props)) > 0.5;
+			SetMaterialProperty(MaterialName, TEXT("Specular Occlusion Enable"), TEXT("Switch"),
+				bEnabled ? TEXT("true") : TEXT("false"), MaterialProperties);
+		}
 	}
 
 }

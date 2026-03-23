@@ -340,7 +340,12 @@ public:
 			if (ShaderName.Compare(TEXT("Daz Studio Default")) == 0) return FSoftObjectPath(TEXT("/DazToUnreal/DSDBaseMaterial.DSDBaseMaterial"));
 			if (ShaderName.Compare(TEXT("omUberSurface")) == 0) return FSoftObjectPath(TEXT("/DazToUnreal/omUberBaseMaterial.omUberBaseMaterial"));
 			if (ShaderName.Compare(TEXT("AoA_Subsurface")) == 0) return FSoftObjectPath(TEXT("/DazToUnreal/AoASubsurfaceBaseMaterial.AoASubsurfaceBaseMaterial"));
-			if (ShaderName.Compare(TEXT("Iray Uber")) == 0) return FSoftObjectPath(TEXT("/DazToUnreal/IrayUberBaseMaterial.IrayUberBaseMaterial"));
+			if (ShaderName.Compare(TEXT("Iray Uber")) == 0)
+			{
+				FSoftObjectPath Generated = GetGeneratedMaterialPath(TEXT("BaseIrayUberSkinMaterial"));
+				if (!Generated.IsNull()) return Generated;
+				return FSoftObjectPath(TEXT("/DazToUnreal/IrayUberBaseMaterial.IrayUberBaseMaterial"));
+			}
 			if (ShaderName.Compare(TEXT("PBRSkin")) == 0)
 			{
 				FSoftObjectPath Generated = GetGeneratedMaterialPath(TEXT("BasePBRSkinMaterial"));
@@ -354,7 +359,12 @@ public:
 			if (ShaderName.Compare(TEXT("Daz Studio Default")) == 0) return FSoftObjectPath(TEXT("/DazToUnreal/DSDBaseMaterial.DSDBaseMaterial"));
 			if (ShaderName.Compare(TEXT("omUberSurface")) == 0) return FSoftObjectPath(TEXT("/DazToUnreal/omUberSkinMaterial.omUberSkinMaterial"));
 			if (ShaderName.Compare(TEXT("AoA_Subsurface")) == 0) return FSoftObjectPath(TEXT("/DazToUnreal/AoASubsurfaceSkinMaterial.AoASubsurfaceSkinMaterial"));
-			if (ShaderName.Compare(TEXT("Iray Uber")) == 0) return FSoftObjectPath(TEXT("/DazToUnreal/IrayUberSkinMaterial.IrayUberSkinMaterial"));
+			if (ShaderName.Compare(TEXT("Iray Uber")) == 0)
+			{
+				FSoftObjectPath Generated = GetGeneratedMaterialPath(TEXT("BaseIrayUberSkinMaterial"));
+				if (!Generated.IsNull()) return Generated;
+				return FSoftObjectPath(TEXT("/DazToUnreal/IrayUberSkinMaterial.IrayUberSkinMaterial"));
+			}
 			if (ShaderName.Compare(TEXT("PBRSkin")) == 0)
 			{
 				FSoftObjectPath Generated = GetGeneratedMaterialPath(TEXT("BasePBRSkinMaterial"));

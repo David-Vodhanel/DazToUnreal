@@ -15,6 +15,7 @@ class UMaterialExpressionMaterialFunctionCall;
 class UMaterialExpressionAppendVector;
 class UMaterialExpressionOneMinus;
 class UMaterialExpressionStaticSwitchParameter;
+class UMaterialExpressionAdd;
 
 /**
  * Builds DazToUnreal base materials procedurally from C++ so they are always
@@ -28,7 +29,7 @@ class DAZTOUNREAL_API FDazToUnrealMaterialBuilder
 {
 public:
 	/** Increment this to force regeneration of all managed materials on next editor launch. */
-	static constexpr int32 MATERIAL_BUILDER_VERSION = 3;
+	static constexpr int32 MATERIAL_BUILDER_VERSION = 8;
 
 	/** Called once the asset registry has finished its initial file scan. */
 	static void BuildOutdatedMaterials();
@@ -48,6 +49,7 @@ private:
 
 	// Per-material builders
 	static void BuildBasePBRSkinMaterial(const FString& DestinationFolder, bool bForce = false);
+	static void BuildBaseIrayUberSkinMaterial(const FString& DestinationFolder, bool bForce = false);
 
 	// Node creation helpers
 	static UMaterialExpressionTextureSampleParameter2D* AddTexParam(
@@ -69,6 +71,7 @@ private:
 		UMaterial* Material, const TCHAR* FunctionPath, int32 X, int32 Y);
 	static UMaterialExpressionAppendVector* AddAppendVector(UMaterial* Material, int32 X, int32 Y);
 	static UMaterialExpressionOneMinus* AddOneMinus(UMaterial* Material, int32 X, int32 Y);
+	static UMaterialExpressionAdd* AddAdd(UMaterial* Material, int32 X, int32 Y);
 	static UMaterialExpressionStaticSwitchParameter* AddStaticSwitch(
 		UMaterial* Material, const FName& Name, const FName& Group, bool bDefault, int32 X, int32 Y);
 };
