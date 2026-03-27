@@ -668,6 +668,59 @@ void FDazToUnrealMaterials::CorrectDazShaders(FString MaterialName, TMap<FString
 		}
 	}
 
+	////////////////////////////////////////////////////////
+	// Iray Uber Roughness Corrections
+	//
+	// 1. Roughness Squared: Daz squares roughness values before GGX evaluation
+	//    when this flag is set. We square the scalar here during import so the
+	//    material graph receives the correct value.
+	//
+	// 2. Specular Detail Blend: When a specular texture exists (Dual Lobe or
+	//    Glossy), set blend high so the inverted spec texture drives roughness
+	//    variation. When no spec texture, set blend to 0 for flat scalar fallback.
+	////////////////////////////////////////////////////////
+	if (ShaderName == TEXT("Iray Uber") && CachedSettings->bUseGeneratedBaseMaterials)
+	{
+		TArray<FDUFTextureProperty>& Props = MaterialProperties[MaterialName];
+
+		// Square roughness scalars when Roughness Squared is enabled
+		bool bRoughnessSquared = false;
+		if (HasMaterialProperty(TEXT("Roughness Squared"), Props))
+		{
+			bRoughnessSquared = FCString::Atof(*GetMaterialProperty(TEXT("Roughness Squared"), Props)) > 0.5;
+		}
+		if (bRoughnessSquared)
+		{
+			// Square Specular Lobe 1 Roughness
+			if (HasMaterialProperty(TEXT("Specular Lobe 1 Roughness"), Props))
+			{
+				double Roughness = FCString::Atod(*GetMaterialProperty(TEXT("Specular Lobe 1 Roughness"), Props));
+				Roughness = Roughness * Roughness;
+				SetMaterialProperty(MaterialName, TEXT("Specular Lobe 1 Roughness"),
+					TEXT("Double"), FString::SanitizeFloat(Roughness), MaterialProperties);
+			}
+			// Square Glossy Roughness
+			if (HasMaterialProperty(TEXT("Glossy Roughness"), Props))
+			{
+				double Roughness = FCString::Atod(*GetMaterialProperty(TEXT("Glossy Roughness"), Props));
+				Roughness = Roughness * Roughness;
+				SetMaterialProperty(MaterialName, TEXT("Glossy Roughness"),
+					TEXT("Double"), FString::SanitizeFloat(Roughness), MaterialProperties);
+			}
+		}
+
+		// Auto-set Specular Detail Range based on whether a specular texture exists.
+		// When a spec texture is present, it provides centered variation around the
+		// scalar roughness (bright spec = smoother, dark = rougher). Without a texture,
+		// set range to 0 so the scalar roughness is used directly.
+		// Gen 8+/9: texture on "Dual Lobe Specular Reflectivity"
+		// Gen 3:    texture on "Glossy Layered Weight"
+		bool bHasSpecTexture = HasMaterialProperty(TEXT("Dual Lobe Specular Reflectivity Texture"), Props)
+		                    || HasMaterialProperty(TEXT("Glossy Layered Weight Texture"), Props);
+		SetMaterialProperty(MaterialName, TEXT("Specular Detail Range"),
+			TEXT("Double"), bHasSpecTexture ? TEXT("0.6") : TEXT("0.0"), MaterialProperties);
+	}
+
 }
 
 void FDazToUnrealMaterials::SetMaterialProperty(const FString& MaterialName, const FString& PropertyName, const FString& PropertyType, const FString& PropertyValue, TMap<FString, TArray<FDUFTextureProperty>>& MaterialProperties)
@@ -867,7 +920,7 @@ USubsurfaceProfile* FDazToUnrealMaterials::CreateSubsurfaceProfileForMaterial(co
 	// Create the Material Instance
 	//auto SubsurfaceProfileFactory = NewObject<USubsurfaceProfileFactory>();
 
-	//Only create for the PBRSkin base material
+	// Only create for skin shaders (PBRSkin and Iray Uber)
 	FString ShaderName;
 	for (FDUFTextureProperty Property : MaterialProperties)
 	{
@@ -876,7 +929,7 @@ USubsurfaceProfile* FDazToUnrealMaterials::CreateSubsurfaceProfileForMaterial(co
 			ShaderName = Property.ShaderName;
 		}
 	}
-	if (ShaderName != TEXT("PBRSkin"))
+	if (ShaderName != TEXT("PBRSkin") && ShaderName != TEXT("Iray Uber"))
 	{
 		return nullptr;
 	}
@@ -907,30 +960,16 @@ USubsurfaceProfile* FDazToUnrealMaterials::CreateSubsurfaceProfileForMaterial(co
 		FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
 		SubsurfaceProfile = Cast<USubsurfaceProfile>(AssetToolsModule.Get().CreateAsset(SubsurfaceProfileName, FPackageName::GetLongPackagePath(*(CharacterMaterialFolder / MaterialName)), USubsurfaceProfile::StaticClass(), NULL));
 	}
-	// Roughness0: clamp Daz specular lobe 1 into a range that looks good under UE SSS
-	if (HasMaterialProperty(TEXT("Specular Lobe 1 Roughness"), MaterialProperties))
-	{
-		float R0 = FCString::Atof(*GetMaterialProperty(TEXT("Specular Lobe 1 Roughness"), MaterialProperties));
-		SubsurfaceProfile->Settings.Roughness0 = FMath::Clamp(R0, 0.35f, 0.75f);
-	}
-	else
-	{
-		SubsurfaceProfile->Settings.Roughness0 = 0.75f;
-	}
-	// Roughness1: clamp Daz specular lobe 2 multiplier
-	if (HasMaterialProperty(TEXT("Specular Lobe 2 Roughness Mult"), MaterialProperties))
-	{
-		float R1 = FCString::Atof(*GetMaterialProperty(TEXT("Specular Lobe 2 Roughness Mult"), MaterialProperties));
-		SubsurfaceProfile->Settings.Roughness1 = FMath::Clamp(R1, 0.20f, 0.45f);
-	}
-	else
-	{
-		SubsurfaceProfile->Settings.Roughness1 = 0.35f;
-	}
-	if (HasMaterialProperty(TEXT("Dual Lobe Specular Ratio"), MaterialProperties))
-	{
-		SubsurfaceProfile->Settings.LobeMix = FCString::Atof(*GetMaterialProperty(TEXT("Dual Lobe Specular Ratio"), MaterialProperties));
-	}
+	// Dual specular lobe parameters.
+	// Daz's Iray path-tracer roughness values don't map meaningfully to UE's
+	// dual-lobe GGX system — the rendering models are too different. Use fixed
+	// values close to UE's defaults (Roughness0=0.75, Roughness1=1.30, LobeMix=0.85).
+	// Per-character roughness variation is handled by the material graph Roughness pin
+	// (Lerp remap, specular detail textures, normal-derived roughness).
+	// UE clamps: Roughness0/1 to [0.5, 2.0], LobeMix to [0.1, 0.9].
+	SubsurfaceProfile->Settings.Roughness0 = 0.75f;
+	SubsurfaceProfile->Settings.Roughness1 = 1.20f;
+	SubsurfaceProfile->Settings.LobeMix = 0.85f;
 	if (HasMaterialProperty(TEXT("SSS Color"), MaterialProperties))
 	{
 		SubsurfaceProfile->Settings.SubsurfaceColor = FColor::FromHex(*GetMaterialProperty(TEXT("SSS Color"), MaterialProperties));
@@ -962,9 +1001,7 @@ bool FDazToUnrealMaterials::SubsurfaceProfilesAreIdentical(USubsurfaceProfile* A
 bool FDazToUnrealMaterials::SubsurfaceProfilesWouldBeIdentical(USubsurfaceProfile* ExistingSubsurfaceProfile, const TArray<FDUFTextureProperty > MaterialProperties)
 {
 	if (ExistingSubsurfaceProfile == nullptr) return false;
-	if (ExistingSubsurfaceProfile->Settings.Roughness0 != FCString::Atof(*GetMaterialProperty(TEXT("Specular Lobe 1 Roughness"), MaterialProperties))) return false;
-	if (ExistingSubsurfaceProfile->Settings.Roughness1 != FCString::Atof(*GetMaterialProperty(TEXT("Specular Lobe 2 Roughness Mult"), MaterialProperties))) return false;
-	if (ExistingSubsurfaceProfile->Settings.LobeMix != FCString::Atof(*GetMaterialProperty(TEXT("Dual Lobe Specular Ratio"), MaterialProperties))) return false;
+	// Roughness0, Roughness1, LobeMix are now fixed values — only SSS colors vary per material.
 	if (ExistingSubsurfaceProfile->Settings.SubsurfaceColor != FColor::FromHex(*GetMaterialProperty(TEXT("SSS Color"), MaterialProperties))) return false;
 	if (ExistingSubsurfaceProfile->Settings.FalloffColor != FColor::FromHex(*GetMaterialProperty(TEXT("Transmitted Color"), MaterialProperties))) return false;
 	return true;

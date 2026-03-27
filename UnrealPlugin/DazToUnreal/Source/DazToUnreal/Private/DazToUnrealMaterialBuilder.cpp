@@ -20,6 +20,8 @@
 #include "Materials/MaterialExpressionOneMinus.h"
 #include "Materials/MaterialExpressionStaticSwitchParameter.h"
 #include "Materials/MaterialExpressionAdd.h"
+#include "Materials/MaterialExpressionDotProduct.h"
+#include "Materials/MaterialExpressionConstant3Vector.h"
 #include "Materials/MaterialFunction.h"
 #include "Engine/Texture.h"
 
@@ -330,6 +332,24 @@ UMaterialExpressionStaticSwitchParameter* FDazToUnrealMaterialBuilder::AddStatic
 	return Expr;
 }
 
+UMaterialExpressionDotProduct* FDazToUnrealMaterialBuilder::AddDotProduct(UMaterial* Material, int32 X, int32 Y)
+{
+	return Cast<UMaterialExpressionDotProduct>(
+		UMaterialEditingLibrary::CreateMaterialExpression(Material, UMaterialExpressionDotProduct::StaticClass(), X, Y));
+}
+
+UMaterialExpressionConstant3Vector* FDazToUnrealMaterialBuilder::AddConstant3Vector(
+	UMaterial* Material, const FLinearColor& Value, int32 X, int32 Y)
+{
+	auto* Expr = Cast<UMaterialExpressionConstant3Vector>(
+		UMaterialEditingLibrary::CreateMaterialExpression(Material, UMaterialExpressionConstant3Vector::StaticClass(), X, Y));
+	if (Expr)
+	{
+		Expr->Constant = Value;
+	}
+	return Expr;
+}
+
 // ---------------------------------------------------------------------------
 // BasePBRSkinMaterial builder
 //
@@ -569,8 +589,8 @@ void FDazToUnrealMaterialBuilder::BuildBasePBRSkinMaterial(const FString& Destin
 	UMaterialEditingLibrary::ConnectMaterialExpressions(RoughnessTex,  TEXT("R"), MulRoughness, TEXT("A"));
 	UMaterialEditingLibrary::ConnectMaterialExpressions(RoughnessMult, TEXT(""),  MulRoughness, TEXT("B"));
 
-	auto* RoughnessMin = AddScalarParam(Material, TEXT("Roughness Range Min"), GrpRoughness, 0.35f, -1000, 1150);
-	auto* RoughnessMax = AddScalarParam(Material, TEXT("Roughness Range Max"), GrpRoughness, 0.75f, -1000, 1200);
+	auto* RoughnessMin = AddScalarParam(Material, TEXT("Roughness Range Min"), GrpRoughness, 0.30f, -1000, 1150);
+	auto* RoughnessMax = AddScalarParam(Material, TEXT("Roughness Range Max"), GrpRoughness, 0.60f, -1000, 1200);
 	auto* RemapRoughness = AddLerp(Material, -600, 1275);
 	UMaterialEditingLibrary::ConnectMaterialExpressions(RoughnessMin, TEXT(""), RemapRoughness, TEXT("A"));
 	UMaterialEditingLibrary::ConnectMaterialExpressions(RoughnessMax, TEXT(""), RemapRoughness, TEXT("B"));
@@ -881,29 +901,66 @@ void FDazToUnrealMaterialBuilder::BuildBaseIrayUberSkinMaterial(const FString& D
 	UMaterialEditingLibrary::ConnectMaterialExpressions(MulGlossyRough,    TEXT(""), SelectRoughness, TEXT("B"));
 	UMaterialEditingLibrary::ConnectMaterialExpressions(GlossyWeightParam, TEXT(""), SelectRoughness, TEXT("Alpha"));
 
-	// Specular detail → roughness modulation
-	// Bright spec pixels = shinier = reduce roughness. Dark = no change.
-	// Lerp(1.0, SpecDetailReduction, SpecTex) gives a per-pixel multiplier.
-	auto* SpecDetailReduction = AddScalarParam(Material, TEXT("Specular Detail Reduction"), GrpRoughness,
-	                                            0.4f, -1800, 600);
-	auto* ConstOneRough = AddConstant(Material, 1.0f, -1800, 550);
-	auto* SpecDetailMul = AddLerp(Material, -1400, 575);
-	UMaterialEditingLibrary::ConnectMaterialExpressions(ConstOneRough,       TEXT(""), SpecDetailMul, TEXT("A"));
-	UMaterialEditingLibrary::ConnectMaterialExpressions(SpecDetailReduction, TEXT(""), SpecDetailMul, TEXT("B"));
-	UMaterialEditingLibrary::ConnectMaterialExpressions(SelectSpecTex,       TEXT(""), SpecDetailMul, TEXT("Alpha"));
+	// Spec texture → centered roughness variation
+	// Bright spec pixels = smoother, dark spec pixels = rougher, centered on scalar roughness.
+	// Formula: scalarRough + (OneMinus(SpecTex) - 0.5) × SpecDetailRange
+	// This preserves the scalar as the baseline and adds bidirectional variation from
+	// the spec texture, preventing uniformly-bright textures from collapsing roughness.
+	auto* InvertSpecTex = AddOneMinus(Material, -1800, 600);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(SelectSpecTex, TEXT(""), InvertSpecTex, TEXT(""));
 
-	// Apply detail to selected roughness
-	auto* MulRoughDetail = AddMultiply(Material, -1000, 1000);
-	UMaterialEditingLibrary::ConnectMaterialExpressions(SelectRoughness, TEXT(""), MulRoughDetail, TEXT("A"));
-	UMaterialEditingLibrary::ConnectMaterialExpressions(SpecDetailMul,   TEXT(""), MulRoughDetail, TEXT("B"));
+	// Center: OneMinus(SpecTex) - 0.5 → range [-0.5, +0.5]
+	// SpecTex=0.5 → 0 (neutral), SpecTex=1.0 → -0.5 (smoother), SpecTex=0.0 → +0.5 (rougher)
+	auto* CenterOffset = AddConstant(Material, -0.5f, -1800, 650);
+	auto* CenteredSpec = AddAdd(Material, -1600, 625);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(InvertSpecTex, TEXT(""), CenteredSpec, TEXT("A"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(CenterOffset,  TEXT(""), CenteredSpec, TEXT("B"));
+
+	// Scale the centered variation by SpecDetailRange
+	auto* SpecDetailRange = AddScalarParam(Material, TEXT("Specular Detail Range"), GrpRoughness,
+	                                        0.6f, -1600, 700);
+	auto* ScaledVariation = AddMultiply(Material, -1400, 650);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(CenteredSpec,    TEXT(""), ScaledVariation, TEXT("A"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(SpecDetailRange, TEXT(""), ScaledVariation, TEXT("B"));
+
+	// Add variation to scalar roughness baseline
+	auto* SpecRough = AddAdd(Material, -1200, 800);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(SelectRoughness, TEXT(""), SpecRough, TEXT("A"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(ScaledVariation, TEXT(""), SpecRough, TEXT("B"));
+
+	// =========================================================
+	//  NORMAL-DERIVED ROUGHNESS
+	//  Derive per-pixel roughness variation from normal map curvature.
+	//  Dot(Normal.RGB, (0,0,1)) → 1 for flat, <1 for angled (pores/wrinkles).
+	//  OneMinus gives "detail amount" (0=flat, >0=angled).
+	//  Add scaled contribution to roughness alpha before remap.
+	// =========================================================
+	auto* FlatNormalVec = AddConstant3Vector(Material, FLinearColor(0.f, 0.f, 1.f), -1400, 350);
+	auto* DotNormal = AddDotProduct(Material, -1000, 350);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(NormalTex,    TEXT("RGB"), DotNormal, TEXT("A"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(FlatNormalVec, TEXT(""),   DotNormal, TEXT("B"));
+
+	auto* OneMinusDot = AddOneMinus(Material, -800, 350);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(DotNormal, TEXT(""), OneMinusDot, TEXT(""));
+
+	auto* NormalRoughStr = AddScalarParam(Material, TEXT("Normal Roughness Strength"), GrpRoughness,
+	                                       0.3f, -1000, 450);
+	auto* MulNormRough = AddMultiply(Material, -600, 400);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(OneMinusDot,   TEXT(""), MulNormRough, TEXT("A"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(NormalRoughStr, TEXT(""), MulNormRough, TEXT("B"));
+
+	// Add normal-derived roughness to spec-offset roughness
+	auto* AddNormRough = AddAdd(Material, -400, 900);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(SpecRough, TEXT(""), AddNormRough, TEXT("A"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(MulNormRough,   TEXT(""), AddNormRough, TEXT("B"));
 
 	// Remap [0,1] → [Min, Max] to preserve texture variation
-	auto* RoughnessMin = AddScalarParam(Material, TEXT("Roughness Range Min"), GrpRoughness, 0.30f, -1000, 1150);
-	auto* RoughnessMax = AddScalarParam(Material, TEXT("Roughness Range Max"), GrpRoughness, 0.60f, -1000, 1200);
-	auto* RemapRoughness = AddLerp(Material, -600, 1000);
-	UMaterialEditingLibrary::ConnectMaterialExpressions(RoughnessMin,   TEXT(""), RemapRoughness, TEXT("A"));
-	UMaterialEditingLibrary::ConnectMaterialExpressions(RoughnessMax,   TEXT(""), RemapRoughness, TEXT("B"));
-	UMaterialEditingLibrary::ConnectMaterialExpressions(MulRoughDetail, TEXT(""), RemapRoughness, TEXT("Alpha"));
+	auto* RoughnessMin = AddScalarParam(Material, TEXT("Roughness Range Min"), GrpRoughness, 0.30f, -400, 1050);
+	auto* RoughnessMax = AddScalarParam(Material, TEXT("Roughness Range Max"), GrpRoughness, 0.60f, -400, 1100);
+	auto* RemapRoughness = AddLerp(Material, -200, 1000);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(RoughnessMin,  TEXT(""), RemapRoughness, TEXT("A"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(RoughnessMax,  TEXT(""), RemapRoughness, TEXT("B"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(AddNormRough,  TEXT(""), RemapRoughness, TEXT("Alpha"));
 	UMaterialEditingLibrary::ConnectMaterialProperty(RemapRoughness, TEXT(""), MP_Roughness);
 
 	// =========================================================
