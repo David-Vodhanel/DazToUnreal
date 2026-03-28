@@ -342,14 +342,10 @@ public:
 			if (ShaderName.Compare(TEXT("AoA_Subsurface")) == 0) return FSoftObjectPath(TEXT("/DazToUnreal/AoASubsurfaceBaseMaterial.AoASubsurfaceBaseMaterial"));
 			if (ShaderName.Compare(TEXT("Iray Uber")) == 0)
 			{
-				FSoftObjectPath Generated = GetGeneratedMaterialPath(TEXT("BaseIrayUberSkinMaterial"));
-				if (!Generated.IsNull()) return Generated;
 				return FSoftObjectPath(TEXT("/DazToUnreal/IrayUberBaseMaterial.IrayUberBaseMaterial"));
 			}
 			if (ShaderName.Compare(TEXT("PBRSkin")) == 0)
 			{
-				FSoftObjectPath Generated = GetGeneratedMaterialPath(TEXT("BasePBRSkinMaterial"));
-				if (!Generated.IsNull()) return Generated;
 				return FSoftObjectPath(TEXT("/DazToUnreal/BasePBRSkinMaterial.BasePBRSkinMaterial"));
 			}
 		}

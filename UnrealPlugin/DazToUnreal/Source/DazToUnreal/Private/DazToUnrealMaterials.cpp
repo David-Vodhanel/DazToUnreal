@@ -81,7 +81,7 @@ FSoftObjectPath FDazToUnrealMaterials::GetBaseMaterial(FString MaterialName, TAr
 	{
 		BaseMaterialAssetPath = GetSkinMaterialForShader(ShaderName);
 	}
-	else if (AssetType == TEXT("Actor/Character"))
+	else if (AssetType == TEXT("Actor/Character") || AssetType == TEXT("Actor"))
 	{
 		// Check for skin materials
 		if (MaterialName.EndsWith(Seperator + TEXT("Face")) ||
@@ -102,7 +102,8 @@ FSoftObjectPath FDazToUnrealMaterials::GetBaseMaterial(FString MaterialName, TAr
 			MaterialName.EndsWith(Seperator + TEXT("Fingernails")) ||
 			MaterialName.EndsWith(Seperator + TEXT("Toenails")) ||
 			MaterialName.EndsWith(Seperator + TEXT("Nipples")) ||
-			MaterialName.EndsWith(Seperator + TEXT("Genitalia")))
+			MaterialName.EndsWith(Seperator + TEXT("Genitalia")) ||
+			MaterialName.EndsWith(Seperator + TEXT("Mouth Cavity")))
 		{
 			BaseMaterialAssetPath = GetSkinMaterialForShader(ShaderName);
 		}
@@ -300,7 +301,7 @@ UMaterialInstanceConstant* FDazToUnrealMaterials::CreateMaterial(const FString C
 		SetMaterialProperty(MaterialName, TEXT("Subsurface Alpha Texture"), TEXT("Texture"), FDazToUnrealTextures::GetSubSurfaceAlphaTexture(CharacterType, MaterialName), MaterialProperties);
 		SetMaterialProperty(MaterialName, TEXT("Cavity Strength"), TEXT("Double"), FString::SanitizeFloat(CachedSettings->DefaultCavityStrength), MaterialProperties);
 	}
-	else if (AssetType == TEXT("Actor/Character"))
+	else if (AssetType == TEXT("Actor/Character") || AssetType == TEXT("Actor"))
 	{
 		// Check for skin materials
 		if (MaterialName.EndsWith(Seperator + TEXT("Face")) ||
@@ -314,7 +315,8 @@ UMaterialInstanceConstant* FDazToUnrealMaterials::CreateMaterial(const FString C
 			MaterialName.EndsWith(Seperator + TEXT("Ears")) ||
 			MaterialName.EndsWith(Seperator + TEXT("Fingernails")) ||
 			MaterialName.EndsWith(Seperator + TEXT("Toenails")) ||
-			MaterialName.EndsWith(Seperator + TEXT("Genitalia")))
+			MaterialName.EndsWith(Seperator + TEXT("Genitalia")) ||
+			MaterialName.EndsWith(Seperator + TEXT("Mouth Cavity")))
 		{
 			SetMaterialProperty(MaterialName, TEXT("Diffuse Subsurface Color Weight"), TEXT("Double"), FString::SanitizeFloat(CachedSettings->DefaultSkinDiffuseSubsurfaceColorWeight), MaterialProperties);
 			SetMaterialProperty(MaterialName, TEXT("Subsurface Alpha Texture"), TEXT("Texture"), FDazToUnrealTextures::GetSubSurfaceAlphaTexture(CharacterType, MaterialName), MaterialProperties);
@@ -903,7 +905,7 @@ USubsurfaceProfile* FDazToUnrealMaterials::CreateSubsurfaceBaseProfileForCharact
 			}
 		}
 
-		if (AssetType == TEXT("Actor/Character"))
+		if (AssetType == TEXT("Actor/Character") || AssetType == TEXT("Actor"))
 		{
 			if (Pair.Key.EndsWith(Seperator + TEXT("Torso")) || Pair.Key.EndsWith(Seperator + TEXT("Body")))
 			{
@@ -1007,6 +1009,24 @@ bool FDazToUnrealMaterials::SubsurfaceProfilesWouldBeIdentical(USubsurfaceProfil
 	return true;
 }
 
+// Primary body part names that should be preferred when combining duplicate
+// materials.  When two identical materials are found and one matches a primary
+// name, it becomes the surviving "original" regardless of DTU ordering.
+static bool IsPrimaryBodyPart(const FString& MaterialName)
+{
+	static const FString PrimaryParts[] = {
+		TEXT("Head"), TEXT("Face"), TEXT("Body"), TEXT("Torso"),
+		TEXT("Arms"), TEXT("Forearms"), TEXT("Hands"), TEXT("Legs"),
+		TEXT("Feet"), TEXT("Hips"), TEXT("Neck"), TEXT("Shoulders"),
+		TEXT("Ears"), TEXT("Lips"), TEXT("EyeSocket"),
+	};
+	for (const FString& Part : PrimaryParts)
+	{
+		if (MaterialName.EndsWith(Part)) return true;
+	}
+	return false;
+}
+
 // Returns a map of material to the material it's a duplicate of.
 TMap<TSharedPtr<FJsonValue>, TSharedPtr<FJsonValue>> FDazToUnrealMaterials::FindDuplicateMaterials(TArray<TSharedPtr<FJsonValue>> MaterialList)
 {
@@ -1015,6 +1035,8 @@ TMap<TSharedPtr<FJsonValue>, TSharedPtr<FJsonValue>> FDazToUnrealMaterials::Find
 #if ENGINE_MAJOR_VERSION >= 5
 	for (int32 i = 0; i < MaterialList.Num(); i++)
 	{
+		if (Duplicates.Contains(MaterialList[i])) continue;
+
 		TSharedPtr<FJsonObject> Material = MaterialList[i]->AsObject();
 		FString MaterialName = Material->GetStringField(TEXT("Material Name"));
 		TSharedPtr<FJsonObject> MaterialCopy = MakeShared<FJsonObject>();
@@ -1023,16 +1045,33 @@ TMap<TSharedPtr<FJsonValue>, TSharedPtr<FJsonValue>> FDazToUnrealMaterials::Find
 
 		for (int32 j = i + 1; j < MaterialList.Num(); j++)
 		{
+			if (Duplicates.Contains(MaterialList[j])) continue;
+
 			TSharedPtr<FJsonObject> CompareMaterial = MaterialList[j]->AsObject();
 			FString CompareMaterialName = CompareMaterial->GetStringField(TEXT("Material Name"));
 			TSharedPtr<FJsonObject> CompareMaterialCopy = MakeShared<FJsonObject>();
 			FJsonObject::Duplicate(CompareMaterial, CompareMaterialCopy);
 			CompareMaterialCopy->RemoveField(TEXT("Material Name"));
 
-			if (FJsonValueObject(MaterialCopy) == FJsonValueObject(CompareMaterialCopy) && !Duplicates.Contains(MaterialList[j]))
+			if (FJsonValueObject(MaterialCopy) == FJsonValueObject(CompareMaterialCopy))
 			{
-				Duplicates.Add(MaterialList[j], MaterialList[i]);
-				UE_LOG(LogDazToUnrealMaterial, Display, TEXT("Material %s is a duplicate of %s"), *CompareMaterialName, *MaterialName);
+				// Prefer primary body part names as the surviving original.
+				// e.g. "Head" survives over "Mouth Cavity" regardless of DTU order.
+				bool bIPrimary = IsPrimaryBodyPart(MaterialName);
+				bool bJPrimary = IsPrimaryBodyPart(CompareMaterialName);
+
+				if (!bIPrimary && bJPrimary)
+				{
+					// j is the better name — make i the duplicate of j
+					Duplicates.Add(MaterialList[i], MaterialList[j]);
+					UE_LOG(LogDazToUnrealMaterial, Display, TEXT("Material %s is a duplicate of %s"), *MaterialName, *CompareMaterialName);
+					break; // i is now a duplicate, stop comparing it
+				}
+				else
+				{
+					Duplicates.Add(MaterialList[j], MaterialList[i]);
+					UE_LOG(LogDazToUnrealMaterial, Display, TEXT("Material %s is a duplicate of %s"), *CompareMaterialName, *MaterialName);
+				}
 			}
 		}
 	}
