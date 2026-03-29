@@ -740,12 +740,28 @@ void FDazToUnrealMaterials::CorrectDazShaders(FString MaterialName, TMap<FString
 		// When a spec texture is present, it provides centered variation around the
 		// scalar roughness (bright spec = smoother, dark = rougher). Without a texture,
 		// set range to 0 so the scalar roughness is used directly.
-		// Gen 8+/9: texture on "Dual Lobe Specular Reflectivity"
-		// Gen 3:    texture on "Glossy Layered Weight"
+		// Gen 8 (Rebekah):  texture on "Dual Lobe Specular Weight"
+		// Gen 8+/9 (Kei):   texture on "Dual Lobe Specular Reflectivity"
+		// Gen 3 (Vic 7):    texture on "Glossy Layered Weight"
 		bool bHasSpecTexture = HasMaterialProperty(TEXT("Dual Lobe Specular Reflectivity Texture"), Props)
+		                    || HasMaterialProperty(TEXT("Dual Lobe Specular Weight Texture"), Props)
 		                    || HasMaterialProperty(TEXT("Glossy Layered Weight Texture"), Props);
 		SetMaterialProperty(MaterialName, TEXT("Specular Detail Range"),
 			TEXT("Double"), bHasSpecTexture ? TEXT("0.6") : TEXT("0.0"), MaterialProperties);
+
+		// Set "bHasDetailNormalTexture" based on normal map texture presence.
+		// When true, normal-derived roughness micro-detail is used (Dot curvature).
+		// When false, falls through to bump map fallback if available.
+		bool bHasNormalTex = HasMaterialProperty(TEXT("Normal Map Texture"), Props);
+		SetMaterialProperty(MaterialName, TEXT("bHasDetailNormalTexture"), TEXT("Switch"),
+			bHasNormalTex ? TEXT("true") : TEXT("false"), MaterialProperties);
+
+		// Set "bHasBumpTexture" based on bump texture presence.
+		// When true and no normal map exists, bump deviation from midpoint
+		// drives roughness micro-detail (pore/wrinkle breakup).
+		bool bHasBumpTex = HasMaterialProperty(TEXT("Bump Strength Texture"), Props);
+		SetMaterialProperty(MaterialName, TEXT("bHasBumpTexture"), TEXT("Switch"),
+			bHasBumpTex ? TEXT("true") : TEXT("false"), MaterialProperties);
 	}
 
 }

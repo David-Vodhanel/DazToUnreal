@@ -34,7 +34,7 @@ class DAZTOUNREAL_API FDazToUnrealMaterialBuilder
 {
 public:
 	/** Increment this to force regeneration of all managed materials on next editor launch. */
-	static constexpr int32 MATERIAL_BUILDER_VERSION = 13;
+	static constexpr int32 MATERIAL_BUILDER_VERSION = 14;
 
 	/** Called once the asset registry has finished its initial file scan. */
 	static void BuildOutdatedMaterials();
