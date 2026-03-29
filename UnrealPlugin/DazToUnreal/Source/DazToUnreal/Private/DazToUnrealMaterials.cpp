@@ -668,6 +668,31 @@ void FDazToUnrealMaterials::CorrectDazShaders(FString MaterialName, TMap<FString
 			SetMaterialProperty(MaterialName, TEXT("Specular Occlusion Enable"), TEXT("Switch"),
 				bEnabled ? TEXT("true") : TEXT("false"), MaterialProperties);
 		}
+
+		// Auto-set Specular Detail Range based on whether a spec weight texture exists.
+		// PBRSkin characters like Laura 9 have a "Dual Lobe Specular Weight Texture"
+		// (e.g. Skin_SLW.jpg) that provides roughness variation. When present, set
+		// range to 0.6 so the centered spec offset contributes to roughness.
+		bool bHasSpecWeightTexture = HasMaterialProperty(TEXT("Dual Lobe Specular Weight Texture"), Props);
+		SetMaterialProperty(MaterialName, TEXT("Specular Detail Range"),
+			TEXT("Double"), bHasSpecWeightTexture ? TEXT("0.6") : TEXT("0.0"), MaterialProperties);
+
+		// Set "bHasDetailRoughnessTexture" StaticSwitch based on whether a
+		// "Detail Specular Roughness Mult Texture" exists in the CSV data.
+		// Clara 8.1 ships Skin_MicroR.jpg; Victoria/Laura/Calypso do not.
+		// When true: detail roughness texture is multiplied into base roughness.
+		// When false: XY magnitude from detail normal map is used additively.
+		bool bHasDetailRoughTex = HasMaterialProperty(TEXT("Detail Specular Roughness Mult Texture"), Props);
+		SetMaterialProperty(MaterialName, TEXT("bHasDetailRoughnessTexture"), TEXT("Switch"),
+			bHasDetailRoughTex ? TEXT("true") : TEXT("false"), MaterialProperties);
+
+		// Set "bHasSpecularWeightTexture" StaticSwitch based on whether a
+		// "Dual Lobe Specular Weight Texture" exists. Laura and Clara ship
+		// texture maps (Skin_SLW.jpg, SkinSW.jpg); Victoria/Calypso use scalar only.
+		// When true: specular = tex × scalar weight × reflectivity.
+		// When false: specular = scalar weight × reflectivity.
+		SetMaterialProperty(MaterialName, TEXT("bHasSpecularWeightTexture"), TEXT("Switch"),
+			bHasSpecWeightTexture ? TEXT("true") : TEXT("false"), MaterialProperties);
 	}
 
 	////////////////////////////////////////////////////////

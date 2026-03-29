@@ -22,6 +22,9 @@
 #include "Materials/MaterialExpressionAdd.h"
 #include "Materials/MaterialExpressionDotProduct.h"
 #include "Materials/MaterialExpressionConstant3Vector.h"
+#include "Materials/MaterialExpressionComponentMask.h"
+#include "Materials/MaterialExpressionSubtract.h"
+#include "Materials/MaterialExpressionAbs.h"
 #include "Materials/MaterialFunction.h"
 #include "Engine/Texture.h"
 
@@ -350,6 +353,33 @@ UMaterialExpressionConstant3Vector* FDazToUnrealMaterialBuilder::AddConstant3Vec
 	return Expr;
 }
 
+UMaterialExpressionComponentMask* FDazToUnrealMaterialBuilder::AddComponentMask(
+	UMaterial* Material, bool bR, bool bG, bool bB, bool bA, int32 X, int32 Y)
+{
+	auto* Expr = Cast<UMaterialExpressionComponentMask>(
+		UMaterialEditingLibrary::CreateMaterialExpression(Material, UMaterialExpressionComponentMask::StaticClass(), X, Y));
+	if (Expr)
+	{
+		Expr->R = bR;
+		Expr->G = bG;
+		Expr->B = bB;
+		Expr->A = bA;
+	}
+	return Expr;
+}
+
+UMaterialExpressionSubtract* FDazToUnrealMaterialBuilder::AddSubtract(UMaterial* Material, int32 X, int32 Y)
+{
+	return Cast<UMaterialExpressionSubtract>(
+		UMaterialEditingLibrary::CreateMaterialExpression(Material, UMaterialExpressionSubtract::StaticClass(), X, Y));
+}
+
+UMaterialExpressionAbs* FDazToUnrealMaterialBuilder::AddAbs(UMaterial* Material, int32 X, int32 Y)
+{
+	return Cast<UMaterialExpressionAbs>(
+		UMaterialEditingLibrary::CreateMaterialExpression(Material, UMaterialExpressionAbs::StaticClass(), X, Y));
+}
+
 // ---------------------------------------------------------------------------
 // BasePBRSkinMaterial builder
 //
@@ -369,11 +399,11 @@ UMaterialExpressionConstant3Vector* FDazToUnrealMaterialBuilder::AddConstant3Vec
 //   Makeup     y = -1200 … -950  (params for Makeup BaseColor overlay)
 //   BaseColor  y = -800 … -200
 //   Normal     y =  100 … 1100
-//   Roughness  y = 1200 … 1550
-//   Metallic   y = 1600 … 1700
-//   Specular   y = 1800 … 2150
-//   Opacity    y = 2200 … 2600
-//   Unused     y = 2700 … 4200
+//   Roughness  y = 1200 … 2100  (base rough, XY magnitude, detail tex, remap, makeup, topcoat)
+//   Metallic   y = 2200 … 2300
+//   Specular   y = 2400 … 2900
+//   Opacity    y = 3000 … 3400
+//   Unused     y = 3500 … 5500
 // ---------------------------------------------------------------------------
 
 void FDazToUnrealMaterialBuilder::BuildBasePBRSkinMaterial(const FString& DestinationFolder, bool bForce)
@@ -505,9 +535,9 @@ void FDazToUnrealMaterialBuilder::BuildBasePBRSkinMaterial(const FString& Destin
 
 	// -- Detail UV tiling: TexCoord × AppendVector(HTiles, VTiles) --
 	auto* DetailHTiles = AddScalarParam(Material, TEXT("Detail Horizontal Tiles"),
-		GrpNormal, 0.5f, -2600, 500);
+		GrpNormal, 1.0f, -2600, 500);
 	auto* DetailVTiles = AddScalarParam(Material, TEXT("Detail Vertical Tiles"),
-		GrpNormal, 0.5f, -2600, 600);
+		GrpNormal, 1.0f, -2600, 600);
 	auto* AppendTiles = AddAppendVector(Material, -2200, 550);
 	UMaterialEditingLibrary::ConnectMaterialExpressions(DetailHTiles, TEXT(""), AppendTiles, TEXT("A"));
 	UMaterialEditingLibrary::ConnectMaterialExpressions(DetailVTiles, TEXT(""), AppendTiles, TEXT("B"));
@@ -576,47 +606,175 @@ void FDazToUnrealMaterialBuilder::BuildBasePBRSkinMaterial(const FString& Destin
 
 	// =========================================================
 	//  ROUGHNESS
-	//  Lerp(RoughnessMin, RoughnessMax, RoughnessTex.R × RoughnessScalar)
-	//  Remaps the 0-1 texture range into [Min, Max], preserving all variation.
-	//  (Clamp would crush detail at the extremes.)
+	//
+	//  1. Base roughness: SpecLobe1RoughnessTex.R × SpecLobe1Roughness (scalar)
+	//
+	//  2. Detail UV tiling: TexCoord × AppendVector(DetailHTiles, DetailVTiles)
+	//     Used by both detail normal (already created above) and detail roughness tex.
+	//
+	//  3. XY magnitude from detail normal map (Manhattan distance):
+	//     DetailNormalTex.R → Sub(0.5) → Mul(2) → Abs → absNx
+	//     DetailNormalTex.G → Sub(0.5) → Mul(2) → Abs → absNy
+	//     absNx + absNy → rawMagnitude (range ~0.0–0.5 for skin)
+	//     rawMagnitude × NormalRoughnessStrength → normalMicroDetail
+	//
+	//  4. Detail roughness texture path (Clara-type characters):
+	//     "Detail Specular Roughness Mult Texture" sampled at detail UV
+	//
+	//  5. StaticSwitch "bHasDetailRoughnessTexture":
+	//     True:  baseRoughness × detailRoughnessTexture → combinedRoughness
+	//     False: baseRoughness + normalMicroDetail → combinedRoughness
+	//
+	//  6. Centered spec weight offset (same as before):
+	//     "Dual Lobe Specular Weight Texture" → centered offset × SpecDetailRange
+	//     Added on top of combinedRoughness.
+	//
+	//  7. Lerp(RoughnessMin, RoughnessMax, finalAlpha) → MP_Roughness
+	//     (after Makeup × and TopCoat Lerp StaticSwitch gates)
 	// =========================================================
+
+	// ---- 1. Base roughness from character's roughness texture ----
 	auto* RoughnessTex  = AddTexParam   (Material, TEXT("Specular Lobe 1 Roughness Texture"), GrpRoughness,
-	                                      -1800, 1200, TEX_WHITE);
+	                                      -2600, 1200, TEX_WHITE);
 	auto* RoughnessMult = AddScalarParam(Material, TEXT("Specular Lobe 1 Roughness"), GrpRoughness,
-	                                      1.0f, -1400, 1350);
+	                                      1.0f, -2600, 1350);
 
-	auto* MulRoughness = AddMultiply(Material, -1000, 1275);
-	UMaterialEditingLibrary::ConnectMaterialExpressions(RoughnessTex,  TEXT("R"), MulRoughness, TEXT("A"));
-	UMaterialEditingLibrary::ConnectMaterialExpressions(RoughnessMult, TEXT(""),  MulRoughness, TEXT("B"));
+	auto* MulBaseRough = AddMultiply(Material, -2200, 1275);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(RoughnessTex,  TEXT("R"), MulBaseRough, TEXT("A"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(RoughnessMult, TEXT(""),  MulBaseRough, TEXT("B"));
 
-	auto* RoughnessMin = AddScalarParam(Material, TEXT("Roughness Range Min"), GrpRoughness, 0.30f, -1000, 1150);
-	auto* RoughnessMax = AddScalarParam(Material, TEXT("Roughness Range Max"), GrpRoughness, 0.60f, -1000, 1200);
-	auto* RemapRoughness = AddLerp(Material, -600, 1275);
-	UMaterialEditingLibrary::ConnectMaterialExpressions(RoughnessMin, TEXT(""), RemapRoughness, TEXT("A"));
-	UMaterialEditingLibrary::ConnectMaterialExpressions(RoughnessMax, TEXT(""), RemapRoughness, TEXT("B"));
-	UMaterialEditingLibrary::ConnectMaterialExpressions(MulRoughness, TEXT(""), RemapRoughness, TEXT("Alpha"));
+	// ---- 2. Detail UV tiling ----
+	// Reuse the Detail Tiles params created in the Normal section.
+	// Create a second TexCoord × tiling for the roughness texture sampler.
+	auto* RoughDetailTexCoord = AddTexCoord(Material, -2600, 1450);
+	auto* RoughDetailAppend   = AddAppendVector(Material, -2200, 1500);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(DetailHTiles, TEXT(""), RoughDetailAppend, TEXT("A"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(DetailVTiles, TEXT(""), RoughDetailAppend, TEXT("B"));
+
+	auto* RoughDetailMulUV = AddMultiply(Material, -2200, 1600);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(RoughDetailTexCoord, TEXT(""), RoughDetailMulUV, TEXT("A"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(RoughDetailAppend,   TEXT(""), RoughDetailMulUV, TEXT("B"));
+
+	// ---- 3. XY magnitude from detail normal map (Manhattan distance) ----
+	// Extract R channel (tangent-space X), remap [0,1] → [-1,1], take Abs
+	auto* MaskR = AddComponentMask(Material, true, false, false, false, -1800, 1200);
+	// "Input" pin → GetShortenPinName → "" (empty)
+	UMaterialEditingLibrary::ConnectMaterialExpressions(DetailNormalTex, TEXT("RGB"), MaskR, TEXT(""));
+
+	auto* SubR = AddSubtract(Material, -1600, 1200);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(MaskR, TEXT(""), SubR, TEXT("A"));
+	// ConstB default is 1.0, override to 0.5
+	if (SubR) SubR->ConstB = 0.5f;
+
+	auto* MulR2 = AddMultiply(Material, -1400, 1200);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(SubR, TEXT(""), MulR2, TEXT("A"));
+	auto* Const2a = AddConstant(Material, 2.0f, -1400, 1250);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(Const2a, TEXT(""), MulR2, TEXT("B"));
+
+	auto* AbsNx = AddAbs(Material, -1200, 1200);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(MulR2, TEXT(""), AbsNx, TEXT(""));
+
+	// Extract G channel (tangent-space Y), remap [0,1] → [-1,1], take Abs
+	auto* MaskG = AddComponentMask(Material, false, true, false, false, -1800, 1350);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(DetailNormalTex, TEXT("RGB"), MaskG, TEXT(""));
+
+	auto* SubG = AddSubtract(Material, -1600, 1350);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(MaskG, TEXT(""), SubG, TEXT("A"));
+	if (SubG) SubG->ConstB = 0.5f;
+
+	auto* MulG2 = AddMultiply(Material, -1400, 1350);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(SubG, TEXT(""), MulG2, TEXT("A"));
+	auto* Const2b = AddConstant(Material, 2.0f, -1400, 1400);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(Const2b, TEXT(""), MulG2, TEXT("B"));
+
+	auto* AbsNy = AddAbs(Material, -1200, 1350);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(MulG2, TEXT(""), AbsNy, TEXT(""));
+
+	// Manhattan distance: |nx| + |ny| → rawMagnitude (range ~0.0–0.5 for skin normals)
+	auto* RawMagnitude = AddAdd(Material, -1000, 1275);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(AbsNx, TEXT(""), RawMagnitude, TEXT("A"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(AbsNy, TEXT(""), RawMagnitude, TEXT("B"));
+
+	// Scale by Normal Roughness Strength
+	auto* NormalRoughStr = AddScalarParam(Material, TEXT("Normal Roughness Strength"), GrpRoughness,
+	                                       0.3f, -1000, 1350);
+	auto* NormalMicroDetail = AddMultiply(Material, -800, 1310);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(RawMagnitude,   TEXT(""), NormalMicroDetail, TEXT("A"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(NormalRoughStr, TEXT(""), NormalMicroDetail, TEXT("B"));
+
+	// ---- 4. Detail roughness texture (Clara-type: Skin_MicroR.jpg) ----
+	// Sampled with the same detail tiling UV as the detail normal map
+	auto* DetailRoughTex = AddTexParam(Material, TEXT("Detail Specular Roughness Mult Texture"), GrpRoughness,
+	                                    -1800, 1550, TEX_WHITE);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(RoughDetailMulUV, TEXT(""), DetailRoughTex, TEXT("UVs"));
+
+	// ---- 5. StaticSwitch: texture detail vs normal-derived detail ----
+	// True path:  baseRoughness × detailRoughnessTexture.R → combinedRoughness
+	// False path: baseRoughness + normalMicroDetail → combinedRoughness
+	auto* MulDetailRoughTex = AddMultiply(Material, -600, 1550);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(MulBaseRough,   TEXT(""), MulDetailRoughTex, TEXT("A"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(DetailRoughTex, TEXT("R"), MulDetailRoughTex, TEXT("B"));
+
+	auto* AddNormDetail = AddAdd(Material, -600, 1275);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(MulBaseRough,      TEXT(""), AddNormDetail, TEXT("A"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(NormalMicroDetail, TEXT(""), AddNormDetail, TEXT("B"));
+
+	auto* DetailRoughSwitch = AddStaticSwitch(Material, TEXT("bHasDetailRoughnessTexture"),
+		GrpRoughness, false, -400, 1400);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(MulDetailRoughTex, TEXT(""), DetailRoughSwitch, TEXT("True"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(AddNormDetail,     TEXT(""), DetailRoughSwitch, TEXT("False"));
+
+	// ---- 6. Centered spec weight texture offset ----
+	// When Dual Lobe Specular Weight has a texture (Laura, Clara), use it for
+	// additional roughness variation. When constant-only, SpecDetailRange = 0 → no contribution.
+	auto* SpecWeightTex = AddTexParam(Material, TEXT("Dual Lobe Specular Weight Texture"), GrpRoughness,
+	                                   -1800, 1750, TEX_WHITE);
+	auto* InvertSpecTex = AddOneMinus(Material, -1400, 1750);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(SpecWeightTex, TEXT("R"), InvertSpecTex, TEXT(""));
+
+	auto* CenterOffset = AddConstant(Material, -0.5f, -1400, 1800);
+	auto* CenteredSpec = AddAdd(Material, -1200, 1775);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(InvertSpecTex, TEXT(""), CenteredSpec, TEXT("A"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(CenterOffset,  TEXT(""), CenteredSpec, TEXT("B"));
+
+	auto* SpecDetailRange = AddScalarParam(Material, TEXT("Specular Detail Range"), GrpRoughness,
+	                                        0.0f, -1200, 1850);
+	auto* ScaledVariation = AddMultiply(Material, -1000, 1800);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(CenteredSpec,    TEXT(""), ScaledVariation, TEXT("A"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(SpecDetailRange, TEXT(""), ScaledVariation, TEXT("B"));
+
+	auto* AddSpecOffset = AddAdd(Material, -200, 1700);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(DetailRoughSwitch, TEXT(""), AddSpecOffset, TEXT("A"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(ScaledVariation,   TEXT(""), AddSpecOffset, TEXT("B"));
+
+	// ---- 7. Final remap + Makeup + TopCoat ----
+	auto* RoughnessMin = AddScalarParam(Material, TEXT("Roughness Range Min"), GrpRoughness, 0.30f, 0, 1650);
+	auto* RoughnessMax = AddScalarParam(Material, TEXT("Roughness Range Max"), GrpRoughness, 0.60f, 0, 1700);
+	auto* RemapRoughness = AddLerp(Material, 200, 1700);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(RoughnessMin,   TEXT(""), RemapRoughness, TEXT("A"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(RoughnessMax,   TEXT(""), RemapRoughness, TEXT("B"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(AddSpecOffset,  TEXT(""), RemapRoughness, TEXT("Alpha"));
 
 	// ---- Makeup roughness multiplier ----
-	auto* MakeupRoughMult   = AddScalarParam(Material, TEXT("Makeup Roughness Mult"), GrpMakeup, 1.0f, -1400, 1450);
-	auto* MulMakeupRough    = AddMultiply(Material, -200, 1300);
+	auto* MakeupRoughMult   = AddScalarParam(Material, TEXT("Makeup Roughness Mult"), GrpMakeup, 1.0f, 200, 1850);
+	auto* MulMakeupRough    = AddMultiply(Material, 600, 1800);
 	UMaterialEditingLibrary::ConnectMaterialExpressions(RemapRoughness,  TEXT(""), MulMakeupRough, TEXT("A"));
 	UMaterialEditingLibrary::ConnectMaterialExpressions(MakeupRoughMult, TEXT(""), MulMakeupRough, TEXT("B"));
 
-	auto* MakeupSwitchRough = AddStaticSwitch(Material, TEXT("Makeup Enable"), GrpMakeup, false, 200, 1300);
+	auto* MakeupSwitchRough = AddStaticSwitch(Material, TEXT("Makeup Enable"), GrpMakeup, false, 1000, 1800);
 	UMaterialEditingLibrary::ConnectMaterialExpressions(MulMakeupRough, TEXT(""), MakeupSwitchRough, TEXT("True"));
 	UMaterialEditingLibrary::ConnectMaterialExpressions(RemapRoughness, TEXT(""), MakeupSwitchRough, TEXT("False"));
 
 	// ---- Top Coat roughness ----
-	// Lerp toward TopCoatRoughness weighted by TopCoatWeight
-	auto* TopCoatRoughness  = AddScalarParam(Material, TEXT("Top Coat Roughness"), GrpTopCoat, 0.67f, -1400, 1500);
-	auto* TopCoatWeight     = AddScalarParam(Material, TEXT("Top Coat Weight"),    GrpTopCoat, 0.25f, -1400, 1550);
+	auto* TopCoatRoughness  = AddScalarParam(Material, TEXT("Top Coat Roughness"), GrpTopCoat, 0.67f, 200, 1950);
+	auto* TopCoatWeight     = AddScalarParam(Material, TEXT("Top Coat Weight"),    GrpTopCoat, 0.25f, 200, 2000);
 
-	auto* LerpTopCoatRough  = AddLerp(Material, 600, 1300);
+	auto* LerpTopCoatRough  = AddLerp(Material, 1400, 1900);
 	UMaterialEditingLibrary::ConnectMaterialExpressions(MakeupSwitchRough, TEXT(""), LerpTopCoatRough, TEXT("A"));
 	UMaterialEditingLibrary::ConnectMaterialExpressions(TopCoatRoughness,  TEXT(""), LerpTopCoatRough, TEXT("B"));
 	UMaterialEditingLibrary::ConnectMaterialExpressions(TopCoatWeight,     TEXT(""), LerpTopCoatRough, TEXT("Alpha"));
 
-	auto* TopCoatSwitchRough = AddStaticSwitch(Material, TEXT("Top Coat Enable"), GrpTopCoat, false, 1000, 1300);
+	auto* TopCoatSwitchRough = AddStaticSwitch(Material, TEXT("Top Coat Enable"), GrpTopCoat, false, 1800, 1900);
 	UMaterialEditingLibrary::ConnectMaterialExpressions(LerpTopCoatRough,  TEXT(""), TopCoatSwitchRough, TEXT("True"));
 	UMaterialEditingLibrary::ConnectMaterialExpressions(MakeupSwitchRough, TEXT(""), TopCoatSwitchRough, TEXT("False"));
 	UMaterialEditingLibrary::ConnectMaterialProperty(TopCoatSwitchRough, TEXT(""), MP_Roughness);
@@ -625,43 +783,63 @@ void FDazToUnrealMaterialBuilder::BuildBasePBRSkinMaterial(const FString& Destin
 	//  METALLIC  (PBRSkin is always non-metallic; exposed for completeness)
 	// =========================================================
 	auto* MetallicParam = AddScalarParam(Material, TEXT("Metallic Weight"), GrpSpecular,
-	                                      0.0f, -800, 1550);
+	                                      0.0f, -800, 2200);
 	UMaterialEditingLibrary::ConnectMaterialProperty(MetallicParam, TEXT(""), MP_Metallic);
 
 	// =========================================================
 	//  SPECULAR
-	//  DualLobeSpecularWeight × DualLobeSpecularReflectivity
+	//  Two paths: scalar-only and texture-weighted, selected by StaticSwitch.
+	//  Scalar: DualLobeSpecularWeight × DualLobeSpecularReflectivity
+	//  Texture: (DualLobeSpecularWeightTex.R × DualLobeSpecularWeight) × DualLobeSpecularReflectivity
+	//  Victoria 9 / Calypso: scalar weight only (1.0 / 0.65)
+	//  Laura / Clara: texture weight (Skin_SLW.jpg / SkinSW.jpg)
 	// =========================================================
-	auto* DualLobeWeight  = AddScalarParam(Material, TEXT("Dual Lobe Specular Weight"),
-	                                        GrpSpecular, 1.0f,  -1400, 1750);
-	auto* DualLobeReflect = AddScalarParam(Material, TEXT("Dual Lobe Specular Reflectivity"),
-	                                        GrpSpecular, 0.25f, -1400, 1900);
 
-	auto* MulSpecular = AddMultiply(Material, -1000, 1825);
-	UMaterialEditingLibrary::ConnectMaterialExpressions(DualLobeWeight,  TEXT(""), MulSpecular, TEXT("A"));
-	UMaterialEditingLibrary::ConnectMaterialExpressions(DualLobeReflect, TEXT(""), MulSpecular, TEXT("B"));
+	// Scalar weight path
+	auto* DualLobeWeight  = AddScalarParam(Material, TEXT("Dual Lobe Specular Weight"),
+	                                        GrpSpecular, 1.0f,  -1800, 2400);
+	auto* DualLobeReflect = AddScalarParam(Material, TEXT("Dual Lobe Specular Reflectivity"),
+	                                        GrpSpecular, 0.25f, -1800, 2550);
+
+	auto* MulSpecScalar = AddMultiply(Material, -1400, 2475);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(DualLobeWeight,  TEXT(""), MulSpecScalar, TEXT("A"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(DualLobeReflect, TEXT(""), MulSpecScalar, TEXT("B"));
+
+	// Texture weight path: tex × scalar weight × reflectivity
+	// SpecWeightTex was already created in the roughness section
+	auto* MulSpecTexWeight = AddMultiply(Material, -1400, 2600);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(SpecWeightTex,  TEXT("R"), MulSpecTexWeight, TEXT("A"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(DualLobeWeight, TEXT(""),  MulSpecTexWeight, TEXT("B"));
+
+	auto* MulSpecTexFull = AddMultiply(Material, -1000, 2600);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(MulSpecTexWeight, TEXT(""), MulSpecTexFull, TEXT("A"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(DualLobeReflect,  TEXT(""), MulSpecTexFull, TEXT("B"));
+
+	// StaticSwitch: select texture vs scalar specular weight
+	auto* SpecWeightSwitch = AddStaticSwitch(Material, TEXT("bHasSpecularWeightTexture"),
+		GrpSpecular, false, -600, 2500);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(MulSpecTexFull, TEXT(""), SpecWeightSwitch, TEXT("True"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(MulSpecScalar,  TEXT(""), SpecWeightSwitch, TEXT("False"));
 
 	// ---- Specular Occlusion ----
-	// Multiply AO texture into specular, gated by "Specular Occlusion Enable" switch
-	auto* AOWeightTex   = AddTexParam(Material, TEXT("Ambient Occlusion Weight Texture"), GrpSpecOcc, -1800, 1950, TEX_WHITE);
-	auto* MulSpecOcc    = AddMultiply(Material, -200, 1900);
-	UMaterialEditingLibrary::ConnectMaterialExpressions(MulSpecular, TEXT(""), MulSpecOcc, TEXT("A"));
-	UMaterialEditingLibrary::ConnectMaterialExpressions(AOWeightTex, TEXT("R"), MulSpecOcc, TEXT("B"));
+	auto* AOWeightTex   = AddTexParam(Material, TEXT("Ambient Occlusion Weight Texture"), GrpSpecOcc, -1800, 2700, TEX_WHITE);
+	auto* MulSpecOcc    = AddMultiply(Material, -200, 2650);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(SpecWeightSwitch, TEXT(""), MulSpecOcc, TEXT("A"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(AOWeightTex,      TEXT("R"), MulSpecOcc, TEXT("B"));
 
-	auto* SpecOccSwitch = AddStaticSwitch(Material, TEXT("Specular Occlusion Enable"), GrpSpecOcc, false, 200, 1900);
-	UMaterialEditingLibrary::ConnectMaterialExpressions(MulSpecOcc,  TEXT(""), SpecOccSwitch, TEXT("True"));
-	UMaterialEditingLibrary::ConnectMaterialExpressions(MulSpecular, TEXT(""), SpecOccSwitch, TEXT("False"));
+	auto* SpecOccSwitch = AddStaticSwitch(Material, TEXT("Specular Occlusion Enable"), GrpSpecOcc, false, 200, 2650);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(MulSpecOcc,       TEXT(""), SpecOccSwitch, TEXT("True"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(SpecWeightSwitch, TEXT(""), SpecOccSwitch, TEXT("False"));
 
 	// ---- Top Coat specular ----
-	// Lerp toward TopCoatReflectivity weighted by TopCoatWeight
-	auto* TopCoatReflectivity = AddScalarParam(Material, TEXT("Top Coat Reflectivity"), GrpTopCoat, 0.5f, -1400, 2100);
+	auto* TopCoatReflectivity = AddScalarParam(Material, TEXT("Top Coat Reflectivity"), GrpTopCoat, 0.5f, -1400, 2850);
 
-	auto* LerpTopCoatSpec = AddLerp(Material, 600, 1900);
-	UMaterialEditingLibrary::ConnectMaterialExpressions(SpecOccSwitch,      TEXT(""), LerpTopCoatSpec, TEXT("A"));
+	auto* LerpTopCoatSpec = AddLerp(Material, 600, 2750);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(SpecOccSwitch,       TEXT(""), LerpTopCoatSpec, TEXT("A"));
 	UMaterialEditingLibrary::ConnectMaterialExpressions(TopCoatReflectivity, TEXT(""), LerpTopCoatSpec, TEXT("B"));
-	UMaterialEditingLibrary::ConnectMaterialExpressions(TopCoatWeight,      TEXT(""), LerpTopCoatSpec, TEXT("Alpha"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(TopCoatWeight,       TEXT(""), LerpTopCoatSpec, TEXT("Alpha"));
 
-	auto* TopCoatSwitchSpec = AddStaticSwitch(Material, TEXT("Top Coat Enable"), GrpTopCoat, false, 1000, 1900);
+	auto* TopCoatSwitchSpec = AddStaticSwitch(Material, TEXT("Top Coat Enable"), GrpTopCoat, false, 1000, 2750);
 	UMaterialEditingLibrary::ConnectMaterialExpressions(LerpTopCoatSpec, TEXT(""), TopCoatSwitchSpec, TEXT("True"));
 	UMaterialEditingLibrary::ConnectMaterialExpressions(SpecOccSwitch,   TEXT(""), TopCoatSwitchSpec, TEXT("False"));
 	UMaterialEditingLibrary::ConnectMaterialProperty(TopCoatSwitchSpec, TEXT(""), MP_Specular);
@@ -671,17 +849,17 @@ void FDazToUnrealMaterialBuilder::BuildBasePBRSkinMaterial(const FString& Destin
 	//  SubsurfaceAlphaTex.R × DiffuseSubsurfaceColorWeight × TranslucencyWeight
 	// =========================================================
 	auto* SubsurfAlphaTex = AddTexParam   (Material, TEXT("Subsurface Alpha Texture"),
-	                                        GrpSSS, -1800, 2150, TEX_WHITE);
+	                                        GrpSSS, -1800, 3000, TEX_WHITE);
 	auto* SSColorWeight   = AddScalarParam(Material, TEXT("Diffuse Subsurface Color Weight"),
-	                                        GrpSSS, 0.5f,  -1400, 2300);
+	                                        GrpSSS, 0.5f,  -1400, 3150);
 	auto* TransWeight     = AddScalarParam(Material, TEXT("Translucency Weight"),
-	                                        GrpSSS, 0.85f, -1400, 2450);
+	                                        GrpSSS, 0.85f, -1400, 3250);
 
-	auto* MulOp1 = AddMultiply(Material, -1000, 2225);
+	auto* MulOp1 = AddMultiply(Material, -1000, 3075);
 	UMaterialEditingLibrary::ConnectMaterialExpressions(SubsurfAlphaTex, TEXT("R"), MulOp1, TEXT("A"));
 	UMaterialEditingLibrary::ConnectMaterialExpressions(SSColorWeight,   TEXT(""),  MulOp1, TEXT("B"));
 
-	auto* MulOp2 = AddMultiply(Material, -600, 2350);
+	auto* MulOp2 = AddMultiply(Material, -600, 3175);
 	UMaterialEditingLibrary::ConnectMaterialExpressions(MulOp1,      TEXT(""), MulOp2, TEXT("A"));
 	UMaterialEditingLibrary::ConnectMaterialExpressions(TransWeight, TEXT(""), MulOp2, TEXT("B"));
 	UMaterialEditingLibrary::ConnectMaterialProperty(MulOp2, TEXT(""), MP_Opacity);
@@ -695,33 +873,36 @@ void FDazToUnrealMaterialBuilder::BuildBasePBRSkinMaterial(const FString& Destin
 
 	// SSS colors (read by CreateSubsurfaceProfileForMaterial; stored on USubsurfaceProfile)
 	AddVectorParam(Material, TEXT("SSS Color"),
-		GrpSSS, FLinearColor(0.976f, 0.694f, 0.761f, 1.f), -400, 2700);
+		GrpSSS, FLinearColor(0.976f, 0.694f, 0.761f, 1.f), -400, 3500);
 	AddVectorParam(Material, TEXT("Transmitted Color"),
-		GrpSSS, FLinearColor(0.976f, 0.482f, 0.353f, 1.f), -400, 2850);
+		GrpSSS, FLinearColor(0.976f, 0.482f, 0.353f, 1.f), -400, 3650);
 	AddVectorParam(Material, TEXT("Translucency Color"),
-		GrpSSS, FLinearColor::White,                        -400, 3000);
+		GrpSSS, FLinearColor::White,                        -400, 3800);
 
 	// Dual-lobe specular extras
-	AddScalarParam(Material, TEXT("Dual Lobe Specular Roughness Mult"), GrpSpecular, 1.0f,  -400, 3150);
-	AddScalarParam(Material, TEXT("Specular Lobe 2 Roughness Mult"),    GrpSpecular, 0.55f, -400, 3300);
-	AddScalarParam(Material, TEXT("Dual Lobe Specular Ratio"),          GrpSpecular, 0.15f, -400, 3450);
+	AddScalarParam(Material, TEXT("Dual Lobe Specular Roughness Mult"), GrpSpecular, 1.0f,  -400, 3950);
+	AddScalarParam(Material, TEXT("Specular Lobe 2 Roughness Mult"),    GrpSpecular, 0.55f, -400, 4100);
+	AddScalarParam(Material, TEXT("Dual Lobe Specular Ratio"),          GrpSpecular, 0.15f, -400, 4250);
 
 	// Diffuse extras
-	AddScalarParam(Material, TEXT("Diffuse Roughness"), GrpDiffuse, 0.0f, -400, 3600);
+	AddScalarParam(Material, TEXT("Diffuse Roughness"), GrpDiffuse, 0.0f, -400, 4400);
 
 	// Texture variants of color params (DazToUnreal sets these as textures on instances)
-	AddTexParam(Material, TEXT("Translucency Color Texture"), GrpSSS, -400, 3750, TEX_WHITE);
+	AddTexParam(Material, TEXT("Translucency Color Texture"), GrpSSS, -400, 4550, TEX_WHITE);
 
 	// Top Coat extras
-	AddVectorParam(Material, TEXT("Top Coat Color"),       GrpTopCoat, FLinearColor::White, -400, 3900);
-	AddScalarParam(Material, TEXT("Top Coat Bump Weight"), GrpTopCoat, 0.5f,                -400, 4050);
+	AddVectorParam(Material, TEXT("Top Coat Color"),       GrpTopCoat, FLinearColor::White, -400, 4700);
+	AddScalarParam(Material, TEXT("Top Coat Bump Weight"), GrpTopCoat, 0.5f,                -400, 4850);
 
 	// Specular Occlusion extras (note: Daz misspells "Facing" as "Occusion" in export)
-	AddScalarParam(Material, TEXT("Specular Occlusion Facing"),  GrpSpecOcc, 0.6f, -400, 4200);
-	AddScalarParam(Material, TEXT("Specular Occlusion Grazing"), GrpSpecOcc, 0.1f, -400, 4350);
+	AddScalarParam(Material, TEXT("Specular Occlusion Facing"),  GrpSpecOcc, 0.6f, -400, 5000);
+	AddScalarParam(Material, TEXT("Specular Occlusion Grazing"), GrpSpecOcc, 0.1f, -400, 5150);
 
 	// Makeup extras
-	AddScalarParam(Material, TEXT("Makeup Metallicity Enable"), GrpMakeup, 0.0f, -400, 4500);
+	AddScalarParam(Material, TEXT("Makeup Metallicity Enable"), GrpMakeup, 0.0f, -400, 5300);
+
+	// Detail roughness extras (scalar value — import binding)
+	AddScalarParam(Material, TEXT("Detail Specular Roughness Mult"), GrpRoughness, 1.0f, -400, 5450);
 
 	// ---- Stamp version, compile, save ----
 	StampVersion(Material);
