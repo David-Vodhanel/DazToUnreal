@@ -1632,6 +1632,14 @@ UObject* FDazToUnrealModule::ImportFromDaz(TSharedPtr<FJsonObject> JsonObject, c
 							{
 								FDUFTextureProperty ChildPropertyForRemoval = MaterialProperties[MaterialName][Index];
 								if (ChildPropertyForRemoval.Name == TEXT("Asset Type")) continue;
+								// Keep Texture entries so CorrectDazShaders (called inside
+								// CreateMaterial) can still detect texture presence.  Without
+								// this, materials that share a texture with another surface
+								// (e.g. Head and Mouth Cavity both using G9Kei_Head_S.jpg)
+								// lose the entry before the shader-correction pass runs,
+								// causing Specular Detail Range and similar properties to be
+								// incorrectly zeroed out.
+								if (ChildPropertyForRemoval.Type == TEXT("Texture")) continue;
 								for (FDUFTextureProperty ParentProperty : MaterialProperties[IntermediateMaterialName])
 								{
 									if (ParentProperty.Name == ChildPropertyForRemoval.Name && ParentProperty.Value == ChildPropertyForRemoval.Value)

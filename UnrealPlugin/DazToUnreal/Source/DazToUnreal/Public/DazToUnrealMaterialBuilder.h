@@ -21,6 +21,8 @@ class UMaterialExpressionConstant3Vector;
 class UMaterialExpressionComponentMask;
 class UMaterialExpressionSubtract;
 class UMaterialExpressionAbs;
+class UMaterialExpressionDDX;
+class UMaterialExpressionDDY;
 
 /**
  * Builds DazToUnreal base materials procedurally from C++ so they are always
@@ -34,7 +36,7 @@ class DAZTOUNREAL_API FDazToUnrealMaterialBuilder
 {
 public:
 	/** Increment this to force regeneration of all managed materials on next editor launch. */
-	static constexpr int32 MATERIAL_BUILDER_VERSION = 14;
+	static constexpr int32 MATERIAL_BUILDER_VERSION = 15;
 
 	/** Called once the asset registry has finished its initial file scan. */
 	static void BuildOutdatedMaterials();
@@ -86,4 +88,6 @@ private:
 		UMaterial* Material, bool R, bool G, bool B, bool A, int32 X, int32 Y);
 	static UMaterialExpressionSubtract* AddSubtract(UMaterial* Material, int32 X, int32 Y);
 	static UMaterialExpressionAbs* AddAbs(UMaterial* Material, int32 X, int32 Y);
+	static UMaterialExpressionDDX* AddDDX(UMaterial* Material, int32 X, int32 Y);
+	static UMaterialExpressionDDY* AddDDY(UMaterial* Material, int32 X, int32 Y);
 };

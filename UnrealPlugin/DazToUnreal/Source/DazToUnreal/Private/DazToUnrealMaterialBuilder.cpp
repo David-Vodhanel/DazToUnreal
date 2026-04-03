@@ -25,6 +25,8 @@
 #include "Materials/MaterialExpressionComponentMask.h"
 #include "Materials/MaterialExpressionSubtract.h"
 #include "Materials/MaterialExpressionAbs.h"
+#include "Materials/MaterialExpressionDDX.h"
+#include "Materials/MaterialExpressionDDY.h"
 #include "Materials/MaterialFunction.h"
 #include "Engine/Texture.h"
 
@@ -378,6 +380,18 @@ UMaterialExpressionAbs* FDazToUnrealMaterialBuilder::AddAbs(UMaterial* Material,
 {
 	return Cast<UMaterialExpressionAbs>(
 		UMaterialEditingLibrary::CreateMaterialExpression(Material, UMaterialExpressionAbs::StaticClass(), X, Y));
+}
+
+UMaterialExpressionDDX* FDazToUnrealMaterialBuilder::AddDDX(UMaterial* Material, int32 X, int32 Y)
+{
+	return Cast<UMaterialExpressionDDX>(
+		UMaterialEditingLibrary::CreateMaterialExpression(Material, UMaterialExpressionDDX::StaticClass(), X, Y));
+}
+
+UMaterialExpressionDDY* FDazToUnrealMaterialBuilder::AddDDY(UMaterial* Material, int32 X, int32 Y)
+{
+	return Cast<UMaterialExpressionDDY>(
+		UMaterialEditingLibrary::CreateMaterialExpression(Material, UMaterialExpressionDDY::StaticClass(), X, Y));
 }
 
 // ---------------------------------------------------------------------------
@@ -1120,10 +1134,13 @@ void FDazToUnrealMaterialBuilder::BuildBaseIrayUberSkinMaterial(const FString& D
 
 	// =========================================================
 	//  ROUGHNESS MICRO-DETAIL
-	//  Three possible sources, selected by nested StaticSwitches:
-	//    Priority 1: Normal map exists → Dot(N, up) curvature
-	//    Priority 2: Bump map exists → deviation from midpoint
-	//    Priority 3: Neither → no micro-detail (flat scalar)
+	//  Two independent, additive sources, each gated by a StaticSwitch:
+	//    - Normal map: Dot(N, up) curvature × NormalRoughStrength
+	//    - Bump map:   ddx/ddy local slope × BumpRoughStrength
+	//  Both contribute simultaneously when present. This fixes
+	//  characters like Kei whose head has a (flat) normal map AND
+	//  a bump map — the old priority cascade routed to the normal
+	//  path which produced zero, hiding the bump micro-detail.
 	// =========================================================
 
 	// --- Source 1: Normal-derived roughness ---
@@ -1144,51 +1161,68 @@ void FDazToUnrealMaterialBuilder::BuildBaseIrayUberSkinMaterial(const FString& D
 	UMaterialEditingLibrary::ConnectMaterialExpressions(NormalRoughStr, TEXT(""), NormalMicroDetail, TEXT("B"));
 
 	// --- Source 2: Bump-derived roughness ---
-	// Bump map is a grayscale heightfield. High-frequency deviation from
-	// a midpoint correlates with surface roughness (pores, wrinkles).
-	// BumpTex.R - Midpoint → Abs → × Strength
+	// Bump map is a grayscale heightfield. Instead of subtracting a fixed midpoint
+	// (which is DC-dependent and causes seams between body parts with different
+	// average brightness), use ddx/ddy screen-space partial derivatives to extract
+	// LOCAL slope. Pores and wrinkles produce large derivatives; smooth gradients
+	// produce near-zero. The DC level is irrelevant.
+	// Formula: (Abs(ddx(BumpTex.R)) + Abs(ddy(BumpTex.R))) × Strength
 	auto* BumpTex = AddTexParam(Material, TEXT("Bump Strength Texture"), GrpNormal,
 	                             -1400, 550, TEX_WHITE);
-	auto* BumpMidpoint = AddScalarParam(Material, TEXT("Bump Roughness Midpoint"), GrpRoughness,
-	                                     0.5f, -1400, 650);
-	auto* SubBump = AddSubtract(Material, -1000, 575);
-	UMaterialEditingLibrary::ConnectMaterialExpressions(BumpTex,      TEXT("R"), SubBump, TEXT("A"));
-	UMaterialEditingLibrary::ConnectMaterialExpressions(BumpMidpoint, TEXT(""),  SubBump, TEXT("B"));
 
-	auto* AbsBump = AddAbs(Material, -800, 575);
-	UMaterialEditingLibrary::ConnectMaterialExpressions(SubBump, TEXT(""), AbsBump, TEXT(""));
+	auto* BumpDDX = AddDDX(Material, -1000, 525);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(BumpTex, TEXT("R"), BumpDDX, TEXT("Value"));
+
+	auto* BumpDDY = AddDDY(Material, -1000, 600);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(BumpTex, TEXT("R"), BumpDDY, TEXT("Value"));
+
+	auto* AbsDDX = AddAbs(Material, -800, 525);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(BumpDDX, TEXT(""), AbsDDX, TEXT(""));
+
+	auto* AbsDDY = AddAbs(Material, -800, 600);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(BumpDDY, TEXT(""), AbsDDY, TEXT(""));
+
+	// Abs(ddx) + Abs(ddy) = Manhattan distance of local slope
+	auto* AddBumpSlope = AddAdd(Material, -600, 560);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(AbsDDX, TEXT(""), AddBumpSlope, TEXT("A"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(AbsDDY, TEXT(""), AddBumpSlope, TEXT("B"));
 
 	auto* BumpRoughStr = AddScalarParam(Material, TEXT("Bump Roughness Strength"), GrpRoughness,
-	                                     0.4f, -1000, 675);
-	auto* BumpMicroDetail = AddMultiply(Material, -600, 600);
-	UMaterialEditingLibrary::ConnectMaterialExpressions(AbsBump,      TEXT(""), BumpMicroDetail, TEXT("A"));
+	                                     0.4f, -800, 675);
+	auto* BumpMicroDetail = AddMultiply(Material, -400, 600);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(AddBumpSlope, TEXT(""), BumpMicroDetail, TEXT("A"));
 	UMaterialEditingLibrary::ConnectMaterialExpressions(BumpRoughStr, TEXT(""), BumpMicroDetail, TEXT("B"));
 
-	// --- Source 3: No micro-detail ---
-	auto* ConstZeroDetail = AddConstant(Material, 0.0f, -600, 750);
+	// --- Zero constant for switch false paths ---
+	auto* ConstZeroDetail = AddConstant(Material, 0.0f, -400, 750);
 
-	// --- StaticSwitch cascade ---
-	// Inner switch: bump fallback vs nothing
+	// --- Independent switches: each gates its source against zero ---
+	// Normal switch: curvature or zero
+	auto* SwitchNormal = AddStaticSwitch(Material, TEXT("bHasDetailNormalTexture"), GrpRoughness,
+	                                      false, -200, 450);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(NormalMicroDetail, TEXT(""), SwitchNormal, TEXT("True"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(ConstZeroDetail,   TEXT(""), SwitchNormal, TEXT("False"));
+
+	// Bump switch: ddx/ddy slope or zero
 	auto* SwitchBump = AddStaticSwitch(Material, TEXT("bHasBumpTexture"), GrpRoughness,
-	                                    false, -400, 700);
+	                                    false, -200, 700);
 	UMaterialEditingLibrary::ConnectMaterialExpressions(BumpMicroDetail, TEXT(""), SwitchBump, TEXT("True"));
 	UMaterialEditingLibrary::ConnectMaterialExpressions(ConstZeroDetail, TEXT(""), SwitchBump, TEXT("False"));
 
-	// Outer switch: normal map vs bump/nothing
-	auto* SwitchNormal = AddStaticSwitch(Material, TEXT("bHasDetailNormalTexture"), GrpRoughness,
-	                                      false, -200, 500);
-	UMaterialEditingLibrary::ConnectMaterialExpressions(NormalMicroDetail, TEXT(""), SwitchNormal, TEXT("True"));
-	UMaterialEditingLibrary::ConnectMaterialExpressions(SwitchBump,        TEXT(""), SwitchNormal, TEXT("False"));
+	// Sum both micro-detail sources (additive — both contribute when present)
+	auto* AddBothMicro = AddAdd(Material, 0, 575);
+	UMaterialEditingLibrary::ConnectMaterialExpressions(SwitchNormal, TEXT(""), AddBothMicro, TEXT("A"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(SwitchBump,   TEXT(""), AddBothMicro, TEXT("B"));
 
-	// Add selected micro-detail to spec-offset roughness
-	auto* AddMicroDetail = AddAdd(Material, 0, 900);
+	// Add combined micro-detail to spec-offset roughness
+	auto* AddMicroDetail = AddAdd(Material, 200, 900);
 	UMaterialEditingLibrary::ConnectMaterialExpressions(SpecRough,    TEXT(""), AddMicroDetail, TEXT("A"));
-	UMaterialEditingLibrary::ConnectMaterialExpressions(SwitchNormal, TEXT(""), AddMicroDetail, TEXT("B"));
+	UMaterialEditingLibrary::ConnectMaterialExpressions(AddBothMicro, TEXT(""), AddMicroDetail, TEXT("B"));
 
 	// Remap [0,1] → [Min, Max] to preserve texture variation
-	auto* RoughnessMin = AddScalarParam(Material, TEXT("Roughness Range Min"), GrpRoughness, 0.30f, 0, 1050);
-	auto* RoughnessMax = AddScalarParam(Material, TEXT("Roughness Range Max"), GrpRoughness, 0.60f, 0, 1100);
-	auto* RemapRoughness = AddLerp(Material, 200, 1000);
+	auto* RoughnessMin = AddScalarParam(Material, TEXT("Roughness Range Min"), GrpRoughness, 0.30f, 200, 1050);
+	auto* RoughnessMax = AddScalarParam(Material, TEXT("Roughness Range Max"), GrpRoughness, 0.60f, 200, 1100);
+	auto* RemapRoughness = AddLerp(Material, 400, 1000);
 	UMaterialEditingLibrary::ConnectMaterialExpressions(RoughnessMin,   TEXT(""), RemapRoughness, TEXT("A"));
 	UMaterialEditingLibrary::ConnectMaterialExpressions(RoughnessMax,   TEXT(""), RemapRoughness, TEXT("B"));
 	UMaterialEditingLibrary::ConnectMaterialExpressions(AddMicroDetail, TEXT(""), RemapRoughness, TEXT("Alpha"));
