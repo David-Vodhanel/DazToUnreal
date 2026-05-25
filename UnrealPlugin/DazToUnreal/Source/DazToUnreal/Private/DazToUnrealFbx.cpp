@@ -89,7 +89,7 @@ void FDazToUnrealFbx::AddWeightsToAllNodes(FbxNode* Parent)
 
 		if (FbxGeometry* NodeGeometry = static_cast<FbxGeometry*>(ChildNode->GetMesh()))
 		{
-			UE_LOG(LogTemp, Warning, TEXT("  No Deformers"), *ChildName);
+			UE_LOG(LogTemp, Warning, TEXT("  No Deformers: %s"), *ChildName);
 			if (NodeGeometry->GetDeformerCount() == 0)
 			{
 				FbxCluster* Cluster = FbxCluster::Create(Parent->GetScene(), "");
