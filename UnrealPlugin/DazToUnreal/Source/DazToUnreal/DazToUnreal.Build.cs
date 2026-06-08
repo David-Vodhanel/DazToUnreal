@@ -41,7 +41,8 @@ public class DazToUnreal : ModuleRules
 				"ControlRigDeveloper",
 				"ToolMenus",
 				"ContentBrowser",
-				// ... add private dependencies that you statically link with here ...	
+				"MaterialEditor",
+				// ... add private dependencies that you statically link with here ...
 			}
 			);
 
@@ -60,6 +61,7 @@ public class DazToUnreal : ModuleRules
 
 #if UE_5_2_OR_LATER
 		PrivateDependencyModuleNames.Add("IKRig");
+		PrivateDependencyModuleNames.Add("IKRigEditor");
 #endif
 
 #if UE_5_3_OR_LATER

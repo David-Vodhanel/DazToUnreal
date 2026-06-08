@@ -81,7 +81,7 @@ FSoftObjectPath FDazToUnrealMaterials::GetBaseMaterial(FString MaterialName, TAr
 	{
 		BaseMaterialAssetPath = GetSkinMaterialForShader(ShaderName);
 	}
-	else if (AssetType == TEXT("Actor/Character"))
+	else if (AssetType == TEXT("Actor/Character") || AssetType == TEXT("Actor"))
 	{
 		// Check for skin materials
 		if (MaterialName.EndsWith(Seperator + TEXT("Face")) ||
@@ -102,7 +102,8 @@ FSoftObjectPath FDazToUnrealMaterials::GetBaseMaterial(FString MaterialName, TAr
 			MaterialName.EndsWith(Seperator + TEXT("Fingernails")) ||
 			MaterialName.EndsWith(Seperator + TEXT("Toenails")) ||
 			MaterialName.EndsWith(Seperator + TEXT("Nipples")) ||
-			MaterialName.EndsWith(Seperator + TEXT("Genitalia")))
+			MaterialName.EndsWith(Seperator + TEXT("Genitalia")) ||
+			MaterialName.EndsWith(Seperator + TEXT("Mouth Cavity")))
 		{
 			BaseMaterialAssetPath = GetSkinMaterialForShader(ShaderName);
 		}
@@ -298,8 +299,9 @@ UMaterialInstanceConstant* FDazToUnrealMaterials::CreateMaterial(const FString C
 		MaterialName.Contains(Seperator + TEXT("Genitalia")))
 	{
 		SetMaterialProperty(MaterialName, TEXT("Subsurface Alpha Texture"), TEXT("Texture"), FDazToUnrealTextures::GetSubSurfaceAlphaTexture(CharacterType, MaterialName), MaterialProperties);
+		SetMaterialProperty(MaterialName, TEXT("Cavity Strength"), TEXT("Double"), FString::SanitizeFloat(CachedSettings->DefaultCavityStrength), MaterialProperties);
 	}
-	else if (AssetType == TEXT("Actor/Character"))
+	else if (AssetType == TEXT("Actor/Character") || AssetType == TEXT("Actor"))
 	{
 		// Check for skin materials
 		if (MaterialName.EndsWith(Seperator + TEXT("Face")) ||
@@ -313,10 +315,12 @@ UMaterialInstanceConstant* FDazToUnrealMaterials::CreateMaterial(const FString C
 			MaterialName.EndsWith(Seperator + TEXT("Ears")) ||
 			MaterialName.EndsWith(Seperator + TEXT("Fingernails")) ||
 			MaterialName.EndsWith(Seperator + TEXT("Toenails")) ||
-			MaterialName.EndsWith(Seperator + TEXT("Genitalia")))
+			MaterialName.EndsWith(Seperator + TEXT("Genitalia")) ||
+			MaterialName.EndsWith(Seperator + TEXT("Mouth Cavity")))
 		{
 			SetMaterialProperty(MaterialName, TEXT("Diffuse Subsurface Color Weight"), TEXT("Double"), FString::SanitizeFloat(CachedSettings->DefaultSkinDiffuseSubsurfaceColorWeight), MaterialProperties);
 			SetMaterialProperty(MaterialName, TEXT("Subsurface Alpha Texture"), TEXT("Texture"), FDazToUnrealTextures::GetSubSurfaceAlphaTexture(CharacterType, MaterialName), MaterialProperties);
+			SetMaterialProperty(MaterialName, TEXT("Cavity Strength"), TEXT("Double"), FString::SanitizeFloat(CachedSettings->DefaultCavityStrength), MaterialProperties);
 		}
 		else if (MaterialName.Contains(Seperator + TEXT("EyeMoisture")))
 		{
@@ -501,6 +505,7 @@ void FDazToUnrealMaterials::CorrectDazShaders(FString MaterialName, TMap<FString
 		return;
 	}
 
+	const UDazToUnrealSettings* CachedSettings = GetDefault<UDazToUnrealSettings>();
 	FString ShaderName = MaterialProperties[MaterialName][0].ShaderName;
 	FString sMaterialAssetName = MaterialProperties[MaterialName][0].MaterialAssetName;
 
@@ -593,6 +598,172 @@ void FDazToUnrealMaterials::CorrectDazShaders(FString MaterialName, TMap<FString
 	// Place holder for Material-specific corections
 	//
 
+	////////////////////////////////////////////////////////
+	// PBRSkin Detail Normal Map Corrections
+	//
+	// Daz sends "Detail Enable" as Double (0/1) but our
+	// BasePBRSkinMaterial uses a StaticSwitchParameter.
+	// Convert it to Switch type so the import pipeline
+	// can activate the detail normal path.
+	//
+	// Also handle "Detail Normal Map Mode":
+	//   Mode 0 = reuse base Normal Map texture (tiled)
+	//   Mode 1 = use separate Detail Normal Map texture
+	////////////////////////////////////////////////////////
+	if (ShaderName == TEXT("PBRSkin") && CachedSettings->bUseGeneratedBaseMaterials)
+	{
+		TArray<FDUFTextureProperty>& Props = MaterialProperties[MaterialName];
+
+		// Handle Detail Normal Map Mode:
+		//   Mode 0 = reuse base Normal Map texture (tiled)
+		//   Mode 1 = use separate Detail Normal Map texture
+		if (HasMaterialProperty(TEXT("Detail Normal Map Mode"), Props))
+		{
+			int32 Mode = FCString::Atoi(*GetMaterialProperty(TEXT("Detail Normal Map Mode"), Props));
+			if (Mode == 0 && HasMaterialProperty(TEXT("Normal Map Texture"), Props))
+			{
+				FString BaseNormalTexture = GetMaterialProperty(TEXT("Normal Map Texture"), Props);
+				SetMaterialProperty(MaterialName, TEXT("Detail Normal Map Texture"),
+					TEXT("Texture"), BaseNormalTexture, MaterialProperties);
+			}
+		}
+
+		// Enable "Detail Enable" static switch.
+		// Daz sends this as Double (0/1) but our material uses a StaticSwitchParameter.
+		// Also auto-enable when a Detail Normal Map Texture is present, even if
+		// Detail Enable is missing or set to 0 — the texture's existence is the
+		// strongest signal that detail normals should be active.
+		bool bDetailEnabled = false;
+		if (HasMaterialProperty(TEXT("Detail Enable"), Props))
+		{
+			bDetailEnabled = FCString::Atof(*GetMaterialProperty(TEXT("Detail Enable"), Props)) > 0.5;
+		}
+		if (!bDetailEnabled && HasMaterialProperty(TEXT("Detail Normal Map Texture"), Props))
+		{
+			bDetailEnabled = true;
+		}
+		SetMaterialProperty(MaterialName, TEXT("Detail Enable"), TEXT("Switch"),
+			bDetailEnabled ? TEXT("true") : TEXT("false"), MaterialProperties);
+
+		// Convert "Makeup Enable" from Double (0/1) to Switch (true/false)
+		if (HasMaterialProperty(TEXT("Makeup Enable"), Props))
+		{
+			bool bEnabled = FCString::Atof(*GetMaterialProperty(TEXT("Makeup Enable"), Props)) > 0.5;
+			SetMaterialProperty(MaterialName, TEXT("Makeup Enable"), TEXT("Switch"),
+				bEnabled ? TEXT("true") : TEXT("false"), MaterialProperties);
+		}
+
+		// Convert "Top Coat Enable" from Double (0/1) to Switch (true/false)
+		if (HasMaterialProperty(TEXT("Top Coat Enable"), Props))
+		{
+			bool bEnabled = FCString::Atof(*GetMaterialProperty(TEXT("Top Coat Enable"), Props)) > 0.5;
+			SetMaterialProperty(MaterialName, TEXT("Top Coat Enable"), TEXT("Switch"),
+				bEnabled ? TEXT("true") : TEXT("false"), MaterialProperties);
+		}
+
+		// Convert "Specular Occlusion Enable" from Double (0/1) to Switch (true/false)
+		if (HasMaterialProperty(TEXT("Specular Occlusion Enable"), Props))
+		{
+			bool bEnabled = FCString::Atof(*GetMaterialProperty(TEXT("Specular Occlusion Enable"), Props)) > 0.5;
+			SetMaterialProperty(MaterialName, TEXT("Specular Occlusion Enable"), TEXT("Switch"),
+				bEnabled ? TEXT("true") : TEXT("false"), MaterialProperties);
+		}
+
+		// Auto-set Specular Detail Range based on whether a spec weight texture exists.
+		// PBRSkin characters like Laura 9 have a "Dual Lobe Specular Weight Texture"
+		// (e.g. Skin_SLW.jpg) that provides roughness variation. When present, set
+		// range to 0.6 so the centered spec offset contributes to roughness.
+		bool bHasSpecWeightTexture = HasMaterialProperty(TEXT("Dual Lobe Specular Weight Texture"), Props);
+		SetMaterialProperty(MaterialName, TEXT("Specular Detail Range"),
+			TEXT("Double"), bHasSpecWeightTexture ? TEXT("0.6") : TEXT("0.0"), MaterialProperties);
+
+		// Set "bHasDetailRoughnessTexture" StaticSwitch based on whether a
+		// "Detail Specular Roughness Mult Texture" exists in the CSV data.
+		// Clara 8.1 ships Skin_MicroR.jpg; Victoria/Laura/Calypso do not.
+		// When true: detail roughness texture is multiplied into base roughness.
+		// When false: XY magnitude from detail normal map is used additively.
+		bool bHasDetailRoughTex = HasMaterialProperty(TEXT("Detail Specular Roughness Mult Texture"), Props);
+		SetMaterialProperty(MaterialName, TEXT("bHasDetailRoughnessTexture"), TEXT("Switch"),
+			bHasDetailRoughTex ? TEXT("true") : TEXT("false"), MaterialProperties);
+
+		// Set "bHasSpecularWeightTexture" StaticSwitch based on whether a
+		// "Dual Lobe Specular Weight Texture" exists. Laura and Clara ship
+		// texture maps (Skin_SLW.jpg, SkinSW.jpg); Victoria/Calypso use scalar only.
+		// When true: specular = tex × scalar weight × reflectivity.
+		// When false: specular = scalar weight × reflectivity.
+		SetMaterialProperty(MaterialName, TEXT("bHasSpecularWeightTexture"), TEXT("Switch"),
+			bHasSpecWeightTexture ? TEXT("true") : TEXT("false"), MaterialProperties);
+	}
+
+	////////////////////////////////////////////////////////
+	// Iray Uber Roughness Corrections
+	//
+	// 1. Roughness Squared: Daz squares roughness values before GGX evaluation
+	//    when this flag is set. We square the scalar here during import so the
+	//    material graph receives the correct value.
+	//
+	// 2. Specular Detail Blend: When a specular texture exists (Dual Lobe or
+	//    Glossy), set blend high so the inverted spec texture drives roughness
+	//    variation. When no spec texture, set blend to 0 for flat scalar fallback.
+	////////////////////////////////////////////////////////
+	if (ShaderName == TEXT("Iray Uber") && CachedSettings->bUseGeneratedBaseMaterials)
+	{
+		TArray<FDUFTextureProperty>& Props = MaterialProperties[MaterialName];
+
+		// Square roughness scalars when Roughness Squared is enabled
+		bool bRoughnessSquared = false;
+		if (HasMaterialProperty(TEXT("Roughness Squared"), Props))
+		{
+			bRoughnessSquared = FCString::Atof(*GetMaterialProperty(TEXT("Roughness Squared"), Props)) > 0.5;
+		}
+		if (bRoughnessSquared)
+		{
+			// Square Specular Lobe 1 Roughness
+			if (HasMaterialProperty(TEXT("Specular Lobe 1 Roughness"), Props))
+			{
+				double Roughness = FCString::Atod(*GetMaterialProperty(TEXT("Specular Lobe 1 Roughness"), Props));
+				Roughness = Roughness * Roughness;
+				SetMaterialProperty(MaterialName, TEXT("Specular Lobe 1 Roughness"),
+					TEXT("Double"), FString::SanitizeFloat(Roughness), MaterialProperties);
+			}
+			// Square Glossy Roughness
+			if (HasMaterialProperty(TEXT("Glossy Roughness"), Props))
+			{
+				double Roughness = FCString::Atod(*GetMaterialProperty(TEXT("Glossy Roughness"), Props));
+				Roughness = Roughness * Roughness;
+				SetMaterialProperty(MaterialName, TEXT("Glossy Roughness"),
+					TEXT("Double"), FString::SanitizeFloat(Roughness), MaterialProperties);
+			}
+		}
+
+		// Auto-set Specular Detail Range based on whether a specular texture exists.
+		// When a spec texture is present, it provides centered variation around the
+		// scalar roughness (bright spec = smoother, dark = rougher). Without a texture,
+		// set range to 0 so the scalar roughness is used directly.
+		// Gen 8 (Rebekah):  texture on "Dual Lobe Specular Weight"
+		// Gen 8+/9 (Kei):   texture on "Dual Lobe Specular Reflectivity"
+		// Gen 3 (Vic 7):    texture on "Glossy Layered Weight"
+		bool bHasSpecTexture = HasMaterialProperty(TEXT("Dual Lobe Specular Reflectivity Texture"), Props)
+		                    || HasMaterialProperty(TEXT("Dual Lobe Specular Weight Texture"), Props)
+		                    || HasMaterialProperty(TEXT("Glossy Layered Weight Texture"), Props);
+		SetMaterialProperty(MaterialName, TEXT("Specular Detail Range"),
+			TEXT("Double"), bHasSpecTexture ? TEXT("0.6") : TEXT("0.0"), MaterialProperties);
+
+		// Set "bHasDetailNormalTexture" based on normal map texture presence.
+		// When true, normal-derived roughness micro-detail is used (Dot curvature).
+		// When false, falls through to bump map fallback if available.
+		bool bHasNormalTex = HasMaterialProperty(TEXT("Normal Map Texture"), Props);
+		SetMaterialProperty(MaterialName, TEXT("bHasDetailNormalTexture"), TEXT("Switch"),
+			bHasNormalTex ? TEXT("true") : TEXT("false"), MaterialProperties);
+
+		// Set "bHasBumpTexture" based on bump texture presence.
+		// When true and no normal map exists, bump deviation from midpoint
+		// drives roughness micro-detail (pore/wrinkle breakup).
+		bool bHasBumpTex = HasMaterialProperty(TEXT("Bump Strength Texture"), Props);
+		SetMaterialProperty(MaterialName, TEXT("bHasBumpTexture"), TEXT("Switch"),
+			bHasBumpTex ? TEXT("true") : TEXT("false"), MaterialProperties);
+	}
+
 }
 
 void FDazToUnrealMaterials::SetMaterialProperty(const FString& MaterialName, const FString& PropertyName, const FString& PropertyType, const FString& PropertyValue, TMap<FString, TArray<FDUFTextureProperty>>& MaterialProperties)
@@ -606,6 +777,7 @@ void FDazToUnrealMaterials::SetMaterialProperty(const FString& MaterialName, con
 	{
 		if (Property.Name == PropertyName)
 		{
+			Property.Type = PropertyType;
 			Property.Value = PropertyValue;
 			return;
 		}
@@ -774,7 +946,7 @@ USubsurfaceProfile* FDazToUnrealMaterials::CreateSubsurfaceBaseProfileForCharact
 			}
 		}
 
-		if (AssetType == TEXT("Actor/Character"))
+		if (AssetType == TEXT("Actor/Character") || AssetType == TEXT("Actor"))
 		{
 			if (Pair.Key.EndsWith(Seperator + TEXT("Torso")) || Pair.Key.EndsWith(Seperator + TEXT("Body")))
 			{
@@ -791,7 +963,7 @@ USubsurfaceProfile* FDazToUnrealMaterials::CreateSubsurfaceProfileForMaterial(co
 	// Create the Material Instance
 	//auto SubsurfaceProfileFactory = NewObject<USubsurfaceProfileFactory>();
 
-	//Only create for the PBRSkin base material
+	// Only create for skin shaders (PBRSkin and Iray Uber)
 	FString ShaderName;
 	for (FDUFTextureProperty Property : MaterialProperties)
 	{
@@ -800,7 +972,7 @@ USubsurfaceProfile* FDazToUnrealMaterials::CreateSubsurfaceProfileForMaterial(co
 			ShaderName = Property.ShaderName;
 		}
 	}
-	if (ShaderName != TEXT("PBRSkin"))
+	if (ShaderName != TEXT("PBRSkin") && ShaderName != TEXT("Iray Uber"))
 	{
 		return nullptr;
 	}
@@ -831,22 +1003,16 @@ USubsurfaceProfile* FDazToUnrealMaterials::CreateSubsurfaceProfileForMaterial(co
 		FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
 		SubsurfaceProfile = Cast<USubsurfaceProfile>(AssetToolsModule.Get().CreateAsset(SubsurfaceProfileName, FPackageName::GetLongPackagePath(*(CharacterMaterialFolder / MaterialName)), USubsurfaceProfile::StaticClass(), NULL));
 	}
-	if (HasMaterialProperty(TEXT("Specular Lobe 1 Roughness"), MaterialProperties))
-	{
-		SubsurfaceProfile->Settings.Roughness0 = FCString::Atof(*GetMaterialProperty(TEXT("Specular Lobe 1 Roughness"), MaterialProperties));
-	}
-	if (HasMaterialProperty(TEXT("Specular Lobe 2 Roughness Mult"), MaterialProperties))
-	{
-		SubsurfaceProfile->Settings.Roughness1 = FCString::Atof(*GetMaterialProperty(TEXT("Specular Lobe 2 Roughness Mult"), MaterialProperties));
-	}
-	if (HasMaterialProperty(TEXT("Dual Lobe Specular Ratio"), MaterialProperties))
-	{
-		SubsurfaceProfile->Settings.LobeMix = FCString::Atof(*GetMaterialProperty(TEXT("Dual Lobe Specular Ratio"), MaterialProperties));
-	}
-	if (HasMaterialProperty(TEXT("SSS Color"), MaterialProperties))
-	{
-		SubsurfaceProfile->Settings.SubsurfaceColor = FColor::FromHex(*GetMaterialProperty(TEXT("SSS Color"), MaterialProperties));
-	}
+	// Dual specular lobe parameters.
+	// Daz's Iray path-tracer roughness values don't map meaningfully to UE's
+	// dual-lobe GGX system — the rendering models are too different. Use fixed
+	// values close to UE's defaults (Roughness0=0.75, Roughness1=1.30, LobeMix=0.85).
+	// Per-character roughness variation is handled by the material graph Roughness pin
+	// (Lerp remap, specular detail textures, normal-derived roughness).
+	// UE clamps: Roughness0/1 to [0.5, 2.0], LobeMix to [0.1, 0.9].
+	SubsurfaceProfile->Settings.Roughness0 = 0.75f;
+	SubsurfaceProfile->Settings.Roughness1 = 1.20f;
+	SubsurfaceProfile->Settings.LobeMix = 0.85f;
 	if (HasMaterialProperty(TEXT("SSS Color"), MaterialProperties))
 	{
 		SubsurfaceProfile->Settings.SubsurfaceColor = FColor::FromHex(*GetMaterialProperty(TEXT("SSS Color"), MaterialProperties));
@@ -855,6 +1021,12 @@ USubsurfaceProfile* FDazToUnrealMaterials::CreateSubsurfaceProfileForMaterial(co
 	{
 		SubsurfaceProfile->Settings.FalloffColor = FColor::FromHex(*GetMaterialProperty(TEXT("Transmitted Color"), MaterialProperties));
 	}
+	// ScatterRadius must be > 0 for subsurface scattering to be visible in UE.
+	// Daz's "Scattering Measurement Distance" (0.015 cm) uses a different SSS model
+	// and is too small for UE's world-scale units. Use a fixed value that gives
+	// natural skin translucency under typical UE lighting.
+	SubsurfaceProfile->Settings.ScatterRadius = 1.2f;
+	SubsurfaceProfile->Settings.IOR = 1.4f;
 	return SubsurfaceProfile;
 }
 
@@ -872,12 +1044,28 @@ bool FDazToUnrealMaterials::SubsurfaceProfilesAreIdentical(USubsurfaceProfile* A
 bool FDazToUnrealMaterials::SubsurfaceProfilesWouldBeIdentical(USubsurfaceProfile* ExistingSubsurfaceProfile, const TArray<FDUFTextureProperty > MaterialProperties)
 {
 	if (ExistingSubsurfaceProfile == nullptr) return false;
-	if (ExistingSubsurfaceProfile->Settings.Roughness0 != FCString::Atof(*GetMaterialProperty(TEXT("Specular Lobe 1 Roughness"), MaterialProperties))) return false;
-	if (ExistingSubsurfaceProfile->Settings.Roughness1 != FCString::Atof(*GetMaterialProperty(TEXT("Specular Lobe 2 Roughness Mult"), MaterialProperties))) return false;
-	if (ExistingSubsurfaceProfile->Settings.LobeMix != FCString::Atof(*GetMaterialProperty(TEXT("Dual Lobe Specular Ratio"), MaterialProperties))) return false;
+	// Roughness0, Roughness1, LobeMix are now fixed values — only SSS colors vary per material.
 	if (ExistingSubsurfaceProfile->Settings.SubsurfaceColor != FColor::FromHex(*GetMaterialProperty(TEXT("SSS Color"), MaterialProperties))) return false;
 	if (ExistingSubsurfaceProfile->Settings.FalloffColor != FColor::FromHex(*GetMaterialProperty(TEXT("Transmitted Color"), MaterialProperties))) return false;
 	return true;
+}
+
+// Primary body part names that should be preferred when combining duplicate
+// materials.  When two identical materials are found and one matches a primary
+// name, it becomes the surviving "original" regardless of DTU ordering.
+static bool IsPrimaryBodyPart(const FString& MaterialName)
+{
+	static const FString PrimaryParts[] = {
+		TEXT("Head"), TEXT("Face"), TEXT("Body"), TEXT("Torso"),
+		TEXT("Arms"), TEXT("Forearms"), TEXT("Hands"), TEXT("Legs"),
+		TEXT("Feet"), TEXT("Hips"), TEXT("Neck"), TEXT("Shoulders"),
+		TEXT("Ears"), TEXT("Lips"), TEXT("EyeSocket"),
+	};
+	for (const FString& Part : PrimaryParts)
+	{
+		if (MaterialName.EndsWith(Part)) return true;
+	}
+	return false;
 }
 
 // Returns a map of material to the material it's a duplicate of.
@@ -888,6 +1076,8 @@ TMap<TSharedPtr<FJsonValue>, TSharedPtr<FJsonValue>> FDazToUnrealMaterials::Find
 #if ENGINE_MAJOR_VERSION >= 5
 	for (int32 i = 0; i < MaterialList.Num(); i++)
 	{
+		if (Duplicates.Contains(MaterialList[i])) continue;
+
 		TSharedPtr<FJsonObject> Material = MaterialList[i]->AsObject();
 		FString MaterialName = Material->GetStringField(TEXT("Material Name"));
 		TSharedPtr<FJsonObject> MaterialCopy = MakeShared<FJsonObject>();
@@ -896,16 +1086,33 @@ TMap<TSharedPtr<FJsonValue>, TSharedPtr<FJsonValue>> FDazToUnrealMaterials::Find
 
 		for (int32 j = i + 1; j < MaterialList.Num(); j++)
 		{
+			if (Duplicates.Contains(MaterialList[j])) continue;
+
 			TSharedPtr<FJsonObject> CompareMaterial = MaterialList[j]->AsObject();
 			FString CompareMaterialName = CompareMaterial->GetStringField(TEXT("Material Name"));
 			TSharedPtr<FJsonObject> CompareMaterialCopy = MakeShared<FJsonObject>();
 			FJsonObject::Duplicate(CompareMaterial, CompareMaterialCopy);
 			CompareMaterialCopy->RemoveField(TEXT("Material Name"));
 
-			if (FJsonValueObject(MaterialCopy) == FJsonValueObject(CompareMaterialCopy) && !Duplicates.Contains(MaterialList[j]))
+			if (FJsonValueObject(MaterialCopy) == FJsonValueObject(CompareMaterialCopy))
 			{
-				Duplicates.Add(MaterialList[j], MaterialList[i]);
-				UE_LOG(LogDazToUnrealMaterial, Display, TEXT("Material %s is a duplicate of %s"), *CompareMaterialName, *MaterialName);
+				// Prefer primary body part names as the surviving original.
+				// e.g. "Head" survives over "Mouth Cavity" regardless of DTU order.
+				bool bIPrimary = IsPrimaryBodyPart(MaterialName);
+				bool bJPrimary = IsPrimaryBodyPart(CompareMaterialName);
+
+				if (!bIPrimary && bJPrimary)
+				{
+					// j is the better name — make i the duplicate of j
+					Duplicates.Add(MaterialList[i], MaterialList[j]);
+					UE_LOG(LogDazToUnrealMaterial, Display, TEXT("Material %s is a duplicate of %s"), *MaterialName, *CompareMaterialName);
+					break; // i is now a duplicate, stop comparing it
+				}
+				else
+				{
+					Duplicates.Add(MaterialList[j], MaterialList[i]);
+					UE_LOG(LogDazToUnrealMaterial, Display, TEXT("Material %s is a duplicate of %s"), *CompareMaterialName, *MaterialName);
+				}
 			}
 		}
 	}
