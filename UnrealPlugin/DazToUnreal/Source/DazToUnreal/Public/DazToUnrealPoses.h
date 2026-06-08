@@ -1,9 +1,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "DazToUnrealEnums.h"
 
-class UPoseAsset;
-class UAnimSequence;
 
 class FDazToUnrealPoses
 {

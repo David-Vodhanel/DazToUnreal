@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "DazToUnrealEnums.h"
 
 // NOTE: This FBX include code was copied from FbxImporter.h
 // Temporarily disable a few warnings due to virtual function abuse in FBX source files

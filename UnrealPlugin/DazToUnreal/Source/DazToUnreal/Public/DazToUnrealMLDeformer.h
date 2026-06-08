@@ -8,7 +8,6 @@
 #endif
 
 class FJsonObject;
-class UAnimSequence;
 class UMLDeformerAsset;
 class UGeometryCache;
 
