@@ -1,5 +1,5 @@
-#include <QtGui/qcheckbox.h>
-#include <QtGui/QMessageBox>
+#include <qcheckbox.h>
+#include <QMessageBox>
 #include <QtNetwork/qudpsocket.h>
 #include <QtNetwork/qabstractsocket.h>
 #include <QUuid.h>
@@ -230,7 +230,7 @@ void DzUnrealAction::writeConfiguration()
 			 if (pCSVfile->open(QIODevice::WriteOnly))
 			 {
 				 pCSVStream = new QTextStream(pCSVfile);
-				 *pCSVStream << "Version, Object, Material, Type, Color, Opacity, File" << endl;
+				 *pCSVStream << "Version, Object, Material, Type, Color, Opacity, File" << "\n";
 			 }
 		 }
 		 writeAllMaterials(m_pSelectedNode, writer, pCSVStream);
@@ -339,7 +339,7 @@ bool DzUnrealAction::setBridgeDialog(DzBasicDialog* arg_dlg)
 
 QString DzUnrealAction::readGuiRootFolder()
 {
-	QString rootFolder = QDesktopServices::storageLocation(QDesktopServices::DocumentsLocation) + QDir::separator() + "DazToUnreal";
+	QString rootFolder = DTU_DOCUMENTS_LOCATION + QDir::separator() + "DazToUnreal";
 
 	if (m_bridgeDialog)
 	{

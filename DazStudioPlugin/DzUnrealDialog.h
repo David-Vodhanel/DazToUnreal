@@ -1,7 +1,7 @@
 #pragma once
 #include "dzbasicdialog.h"
-#include <QtGui/qcombobox.h>
-#include <QtGui/qcheckbox.h>
+#include <qcombobox.h>
+#include <qcheckbox.h>
 #include <QtCore/qsettings.h>
 #include "DzBridgeDialog.h"
 

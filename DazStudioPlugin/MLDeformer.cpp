@@ -1,5 +1,8 @@
 #include "MLDeformer.h"
 
+#include <QCoreApplication> // Qt6: no longer pulled in transitively
+#include <QEventLoop>
+
 #include <Alembic/Abc/All.h>
 #include <Alembic/AbcGeom/All.h>
 #include <Alembic/AbcCoreOgawa/All.h>

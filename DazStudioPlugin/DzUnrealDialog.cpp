@@ -1,19 +1,19 @@
-#include <QtGui/QLayout>
-#include <QtGui/QLabel>
-#include <QtGui/QGroupBox>
-#include <QtGui/QPushButton>
-#include <QtGui/QToolTip>
-#include <QtGui/QWhatsThis>
-#include <QtGui/qlineedit.h>
-#include <QtGui/qboxlayout.h>
-#include <QtGui/qfiledialog.h>
+#include <QLayout>
+#include <QLabel>
+#include <QGroupBox>
+#include <QPushButton>
+#include <QToolTip>
+#include <QWhatsThis>
+#include <qlineedit.h>
+#include <qboxlayout.h>
+#include <qfiledialog.h>
 #include <QtCore/qsettings.h>
-#include <QtGui/qformlayout.h>
-#include <QtGui/qcombobox.h>
-#include <QtGui/qdesktopservices.h>
-#include <QtGui/qcheckbox.h>
-#include <QtGui/qlistwidget.h>
-#include <QtGui/qgroupbox.h>
+#include <qformlayout.h>
+#include <qcombobox.h>
+#include <qdesktopservices.h>
+#include <qcheckbox.h>
+#include <qlistwidget.h>
+#include <qgroupbox.h>
 
 #include "dzapp.h"
 #include "dzscene.h"
@@ -231,7 +231,7 @@ bool DzUnrealDialog::loadSavedSettings()
 	}
 	else
 	{
-		QString DefaultPath = QDesktopServices::storageLocation(QDesktopServices::DocumentsLocation) + QDir::separator() + "DazToUnreal";
+		QString DefaultPath = DTU_DOCUMENTS_LOCATION + QDir::separator() + "DazToUnreal";
 		intermediateFolderEdit->setText(DefaultPath);
 	}
 	if (!settings->value("Port").isNull())
@@ -311,7 +311,7 @@ void DzUnrealDialog::resetToDefaults()
 	m_bDontSaveSettings = true;
 	DzBridgeDialog::resetToDefaults();
 
-	QString DefaultPath = QDesktopServices::storageLocation(QDesktopServices::DocumentsLocation) + QDir::separator() + "DazToUnreal";
+	QString DefaultPath = DTU_DOCUMENTS_LOCATION + QDir::separator() + "DazToUnreal";
 	intermediateFolderEdit->setText(DefaultPath);
 
 	portEdit->setText("32345");
@@ -327,7 +327,7 @@ void DzUnrealDialog::HandleSelectIntermediateFolderButton()
 		QFileDialog::ShowDirsOnly
 		| QFileDialog::DontResolveSymlinks);
 
-	if (directoryName != NULL)
+	if (!directoryName.isNull())
 	{
 		intermediateFolderEdit->setText(directoryName);
 		if (settings != nullptr)
@@ -391,7 +391,7 @@ void DzUnrealDialog::HandleTargetPluginInstallerButton()
 		QFileDialog::ShowDirsOnly
 		| QFileDialog::DontResolveSymlinks);
 
-	if (directoryName == NULL)
+	if (directoryName.isNull())
 	{
 		// User hit cancel: return without addition popups
 		return;
@@ -551,7 +551,7 @@ Engine plugins folder, please make sure you have write permissions to that folde
 
 void DzUnrealDialog::HandleOpenIntermediateFolderButton(QString sFolderPath)
 {
-	QString sIntermediateFolder = QDesktopServices::storageLocation(QDesktopServices::DocumentsLocation) + QDir::separator() + "DazToUnreal";
+	QString sIntermediateFolder = DTU_DOCUMENTS_LOCATION + QDir::separator() + "DazToUnreal";
 	if (intermediateFolderEdit != nullptr)
 	{
 		sIntermediateFolder = intermediateFolderEdit->text();
