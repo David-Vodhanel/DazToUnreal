@@ -34,6 +34,14 @@ set(IMATH_DIR "" CACHE PATH "Path to Imath folder" )
 set(USE_DZBRIDGE_SUBMODULE "ON")
 set(USE_DZBRIDGE_STATIC "ON")
 
+# Build the Daz Studio 6 (Qt6 + DS6 SDK) variant instead of Daz Studio 4 (Qt4).
+# All SDK/Qt paths are still supplied at build time via cache variables, exactly
+# like the DS4 build -- nothing here is hardcoded. Typical configure:
+#   -DDAZ6=ON -DDAZ_SDK_DIR=<DS6 SDK> -DCMAKE_PREFIX_PATH=<Qt6 install>
+#   plus the shared FBX_SDK_DIR / OPENSUBDIV_DIR / ALEMBIC_DIR / IMATH_DIR.
+# Only the DS6-vs-DS4 SDK *layout* differences are branched on DAZ6.
+option(DAZ6 "Build the Daz Studio 6 (Qt6) variant of the plugin" OFF)
+
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 set(DAZ_STUDIO_EXE_DIR "" CACHE PATH "Path to DAZ Studio, needs to be installed to a writeable location" )
@@ -81,7 +89,12 @@ else()
 endif(WIN32)
 
 set(DAZ_SDK_DIR_DEFAULT "")
-set(DAZ_SDK_CORE_RELATIVE_PATH "lib/${DZ_MIXED_PLATFORM}/${DZ_LIB_PREFIX}dzcore${DZ_LIB_SUFFIX}")
+if(DAZ6)
+	# Daz Studio 6 SDK lib layout is <platform>/lib/...  (DS4 is lib/<platform>/...)
+	set(DAZ_SDK_CORE_RELATIVE_PATH "${DZ_MIXED_PLATFORM}/lib/${DZ_LIB_PREFIX}dzcore${DZ_LIB_SUFFIX}")
+else()
+	set(DAZ_SDK_CORE_RELATIVE_PATH "lib/${DZ_MIXED_PLATFORM}/${DZ_LIB_PREFIX}dzcore${DZ_LIB_SUFFIX}")
+endif()
 if(NOT DAZ_SDK_DIR)
 	if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/DAZStudio4.5+ SDK/${DAZ_SDK_CORE_RELATIVE_PATH}")
 		set( DAZ_SDK_DIR_DEFAULT "${CMAKE_CURRENT_LIST_DIR}/DAZStudio4.5+ SDK" )
@@ -95,16 +108,20 @@ if(NOT DAZ_SDK_DIR)
 	return()
 endif()
 
-set(QT_BINARY_DIR_DEFAULT "" CACHE PATH "Path to directory with QT binaries")
-if(NOT QT_BINARY_DIR_DEFAULT)
-	if(EXISTS "${DAZ_SDK_DIR}/bin/${DZ_MIXED_PLATFORM}/qmake${UTIL_EXT}")
-		set( QT_BINARY_DIR_DEFAULT "${DAZ_SDK_DIR}/bin/${DZ_MIXED_PLATFORM}" )
+# Qt4 (DS4) is located via qmake in the SDK bin dir; Qt6 (DS6) is located by
+# find_package below, so this qmake discovery only applies to the DS4 build.
+if(NOT DAZ6)
+	set(QT_BINARY_DIR_DEFAULT "" CACHE PATH "Path to directory with QT binaries")
+	if(NOT QT_BINARY_DIR_DEFAULT)
+		if(EXISTS "${DAZ_SDK_DIR}/bin/${DZ_MIXED_PLATFORM}/qmake${UTIL_EXT}")
+			set( QT_BINARY_DIR_DEFAULT "${DAZ_SDK_DIR}/bin/${DZ_MIXED_PLATFORM}" )
+		endif()
 	endif()
-endif()
 
-if(NOT QT_BINARY_DIR_DEFAULT)
-	message(FATAL_ERROR "Missing path QT binaries. Check QT_BINARY_DIR_DEFAULT path")
-	return()
+	if(NOT QT_BINARY_DIR_DEFAULT)
+		message(FATAL_ERROR "Missing path QT binaries. Check QT_BINARY_DIR_DEFAULT path")
+		return()
+	endif()
 endif()
 
 find_package(OpenGL REQUIRED)
@@ -131,7 +148,12 @@ endif(WIN32)
 set_property(TARGET dzcore APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${DZ_SDK_INCLUDE}" )
 
 # Set dpc as import target
-set(DAZ_SDK_DPC_EXE "${DAZ_SDK_DIR}/bin/${DZ_MIXED_PLATFORM}/dpc${UTIL_EXT}" CACHE FILEPATH "path to sdk dpc" )
+if(DAZ6)
+	# DS6 SDK puts the tools under <platform>/bin/ (DS4 uses bin/<platform>/)
+	set(DAZ_SDK_DPC_EXE "${DAZ_SDK_DIR}/${DZ_MIXED_PLATFORM}/bin/dpc${UTIL_EXT}" CACHE FILEPATH "path to sdk dpc" )
+else()
+	set(DAZ_SDK_DPC_EXE "${DAZ_SDK_DIR}/bin/${DZ_MIXED_PLATFORM}/dpc${UTIL_EXT}" CACHE FILEPATH "path to sdk dpc" )
+endif()
 if(NOT EXISTS ${DAZ_SDK_DPC_EXE})
 	message(FATAL_ERROR "The executable dpc could not be located.  Check the path for DAZ_SDK_DIR.")
 	return()
@@ -139,34 +161,75 @@ endif()
 add_executable(dpc IMPORTED)
 set_property(TARGET dpc APPEND PROPERTY IMPORTED_LOCATION ${DAZ_SDK_DPC_EXE})
 
-# Setup Qt from the DAZ SDK
-if(WIN32)
-	set(DAZ_SDK_QTCORE_LIBRARY "${DAZ_SDK_DIR}/lib/${DZ_MIXED_PLATFORM}/QtCore4.lib")
-elseif(APPLE)
-	set(DAZ_SDK_QTCORE_LIBRARY "${DAZ_SDK_DIR}/lib/${DZ_MIXED_PLATFORM}/QtCore.framework")
+# Setup Qt. DS6 uses Qt6 (found via find_package; point CMAKE_PREFIX_PATH or
+# Qt6_DIR at the Qt6 install at build time). DS4 uses the Qt4 that ships in its SDK.
+if(DAZ6)
+	find_package(Qt6 REQUIRED COMPONENTS Core Core5Compat Gui Widgets Qml Network OpenGL)
+	# CMAKE_AUTOMOC will use Qt6's moc automatically once a Qt6 target is linked.
+	set(DZSDK_QT_CORE_TARGET    Qt6::Core)
+	# Qt6 split the old QtGui into Gui+Widgets; Core5Compat restores QRegExp etc.
+	set(DZSDK_QT_GUI_TARGET     Qt6::Gui Qt6::Widgets Qt6::Core5Compat)
+	set(DZSDK_QT_SCRIPT_TARGET  Qt6::Qml)        # replaces the removed QtScript
+	set(DZSDK_QT_OPENGL_TARGET  Qt6::OpenGL)
+	set(DZSDK_QT_NETWORK_TARGET Qt6::Network)
+	set(DZSDK_QT_SQL_TARGET     "")
+	set(DZSDK_QT_XML_TARGET     "")
+else()
+	# Setup Qt from the DAZ SDK
+	if(WIN32)
+		set(DAZ_SDK_QTCORE_LIBRARY "${DAZ_SDK_DIR}/lib/${DZ_MIXED_PLATFORM}/QtCore4.lib")
+	elseif(APPLE)
+		set(DAZ_SDK_QTCORE_LIBRARY "${DAZ_SDK_DIR}/lib/${DZ_MIXED_PLATFORM}/QtCore.framework")
+	endif()
+
+	set(QT_QTCORE_LIBRARY_RELEASE ${DAZ_SDK_QTCORE_LIBRARY})
+	set(QT_BINARY_DIR "${QT_BINARY_DIR_DEFAULT}")
+	set(QT_QMAKE_EXECUTABLE "${QT_BINARY_DIR_DEFAULT}/qmake${UTIL_EXT}")
+	#set(QT_QMAKE_EXECUTABLE "${DAZ_SDK_DIR}/bin/${DZ_MIXED_PLATFORM}/qmake${UTIL_EXT}")
+	#set(QT_BINARY_DIR "${DAZ_SDK_DIR}/bin/${DZ_MIXED_PLATFORM}")
+	set(QT_HEADERS_DIR "${DAZ_SDK_DIR}/include")
+	set(QT_QTCORE_INCLUDE_DIR "${DAZ_SDK_DIR}/include/QtCore")
+
+	# the qt find module needs this folder but our build does not so just fake it
+	file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/DUMMY_MKSPECS/default" )
+	set(QT_MKSPECS_DIR "${CMAKE_CURRENT_BINARY_DIR}/DUMMY_MKSPECS")
+
+	find_package(Qt4 4.8.1 REQUIRED QtCore QtGui QtScript QtOpenGL QtNetwork QtSql QtXml)
+
+	set(DZSDK_QT_CORE_TARGET Qt4::QtCore)
+	set(DZSDK_QT_GUI_TARGET Qt4::QtGui)
+	set(DZSDK_QT_SCRIPT_TARGET Qt4::QtScript)
+	set(DZSDK_QT_OPENGL_TARGET Qt4::QtOpenGL)
+	set(DZSDK_QT_NETWORK_TARGET Qt4::QtNetwork)
+	set(DZSDK_QT_SQL_TARGET	Qt4::QtSql)
+	set(DZSDK_QT_XML_TARGET	Qt4::QtXml)
 endif()
 
-set(QT_QTCORE_LIBRARY_RELEASE ${DAZ_SDK_QTCORE_LIBRARY})
-set(QT_BINARY_DIR "${QT_BINARY_DIR_DEFAULT}")
-set(QT_QMAKE_EXECUTABLE "${QT_BINARY_DIR_DEFAULT}/qmake${UTIL_EXT}")
-#set(QT_QMAKE_EXECUTABLE "${DAZ_SDK_DIR}/bin/${DZ_MIXED_PLATFORM}/qmake${UTIL_EXT}")
-#set(QT_BINARY_DIR "${DAZ_SDK_DIR}/bin/${DZ_MIXED_PLATFORM}")
-set(QT_HEADERS_DIR "${DAZ_SDK_DIR}/include")
-set(QT_QTCORE_INCLUDE_DIR "${DAZ_SDK_DIR}/include/QtCore")
+############################
+# Daz Studio 6 build settings
+############################
+if(DAZ6)
+	# Same defines/flags the DS6 SDK requires (mirrors the DS6 .vcxproj projects).
+	add_compile_definitions(DTU_DAZ6 DZ_QT_MIGRATION _DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR)
+	set(CMAKE_CXX_STANDARD 17)
+	set(CMAKE_CXX_STANDARD_REQUIRED ON)
+	if(WIN32)
+		add_compile_options(/permissive- /Zc:__cplusplus)
+	endif()
 
-# the qt find module needs this folder but our build does not so just fake it
-file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/DUMMY_MKSPECS/default" )
-set(QT_MKSPECS_DIR "${CMAKE_CURRENT_BINARY_DIR}/DUMMY_MKSPECS")
-
-find_package(Qt4 4.8.1 REQUIRED QtCore QtGui QtScript QtOpenGL QtNetwork QtSql QtXml)
-
-set(DZSDK_QT_CORE_TARGET Qt4::QtCore)
-set(DZSDK_QT_GUI_TARGET Qt4::QtGui)
-set(DZSDK_QT_SCRIPT_TARGET Qt4::QtScript)
-set(DZSDK_QT_OPENGL_TARGET Qt4::QtOpenGL)
-set(DZSDK_QT_NETWORK_TARGET Qt4::QtNetwork)
-set(DZSDK_QT_SQL_TARGET	Qt4::QtSql)
-set(DZSDK_QT_XML_TARGET	Qt4::QtXml)
+	# dzsdkmemory: SDK allocator hooks required by DS6; linked into the plugin.
+	set(DAZ_SDK_MEMORY_LIB "${DAZ_SDK_DIR}/${DZ_MIXED_PLATFORM}/lib/${DZ_LIB_PREFIX}dzsdkmemory${DZ_LIB_SUFFIX}" CACHE FILEPATH "path to dzsdkmemory")
+	if(NOT EXISTS ${DAZ_SDK_MEMORY_LIB})
+		message(FATAL_ERROR "DAZ6: dzsdkmemory could not be located. Check DAZ_SDK_DIR (expected <SDK>/${DZ_MIXED_PLATFORM}/lib/).")
+		return()
+	endif()
+	add_library(dzsdkmemory SHARED IMPORTED)
+	if(WIN32)
+		set_property(TARGET dzsdkmemory APPEND PROPERTY IMPORTED_IMPLIB ${DAZ_SDK_MEMORY_LIB})
+	else()
+		set_property(TARGET dzsdkmemory APPEND PROPERTY IMPORTED_LOCATION ${DAZ_SDK_MEMORY_LIB})
+	endif()
+endif()
 
 ############################
 # FBX SETTINGS
