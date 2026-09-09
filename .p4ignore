@@ -1,0 +1,17 @@
+x64/
+.git/
+out/
+__pycache__/
+*.pyc
+*.pyo
+
+# Qt moc/uic/rcc output - regenerated at build time
+moc_*.cpp
+moc_*.h
+moc_predefs.h
+qrc_*.cpp
+ui_*.h
+*.moc
+
+# Scratch space for debug captures, dumps, and throwaway files
+Scratch/

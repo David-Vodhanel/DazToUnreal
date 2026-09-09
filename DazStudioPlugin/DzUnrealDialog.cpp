@@ -156,10 +156,13 @@ DzUnrealDialog::DzUnrealDialog(QWidget *parent) :
 	skeletalMeshUniqueSkeletonPerCharacterCheckBox->setWhatsThis("If checked, a new skeleton will be created for this character instead of sharing a skeleton with related characters.");
 	skeletalMeshSettingsLayout->addRow("Unique Skeleton", skeletalMeshUniqueSkeletonPerCharacterCheckBox);
 
-	skeletalMeshConvertToEpicSkeletonCheckBox = new QCheckBox("", skeletalMeshSettingsGroupBox);
-	skeletalMeshConvertToEpicSkeletonCheckBox->setChecked(false);
-	skeletalMeshConvertToEpicSkeletonCheckBox->setWhatsThis("If checked, will attempts to convert the character to the Epic Skeleton.  Requires an Unreal project containing the Manny or Quinn mannequin.");
-	skeletalMeshSettingsLayout->addRow("Convert To Epic Skeleton", skeletalMeshConvertToEpicSkeletonCheckBox);
+	skeletonTargetComboBox = new QComboBox(skeletalMeshSettingsGroupBox);
+	skeletonTargetComboBox->setWhatsThis("The skeleton to convert the character to after import.\nNone: keep the Daz skeleton.\nEpic Skeleton: convert to the Epic Skeleton.  Requires an Unreal project containing the Manny or Quinn mannequin.\nMetaHuman: convert to a MetaHuman character.  Requires Unreal Engine 5.8 or newer.");
+	skeletonTargetComboBox->addItem("None");
+	skeletonTargetComboBox->addItem("Epic Skeleton");
+	skeletonTargetComboBox->addItem("MetaHuman");
+	skeletonTargetComboBox->setCurrentIndex(0);
+	skeletalMeshSettingsLayout->addRow("Skeleton Target", skeletonTargetComboBox);
 
 	mlDeformerSettingsGroupBox->setVisible(false);
 
@@ -263,9 +266,14 @@ bool DzUnrealDialog::loadSavedSettings()
 		skeletalMeshUniqueSkeletonPerCharacterCheckBox->setChecked(settings->value("SkeletalMeshUniqueSkeletonPerCharacter").toBool());
 	}
 
-	if (!settings->value("SkeletalMeshConvertToEpicSkeleton").isNull())
+	if (!settings->value("SkeletonTarget").isNull())
 	{
-		skeletalMeshConvertToEpicSkeletonCheckBox->setChecked(settings->value("SkeletalMeshConvertToEpicSkeleton").toBool());
+		skeletonTargetComboBox->setCurrentIndex(settings->value("SkeletonTarget").toInt());
+	}
+	else if (settings->value("SkeletalMeshConvertToEpicSkeleton").toBool())
+	{
+		// Migrate the legacy Convert To Epic Skeleton checkbox setting
+		skeletonTargetComboBox->setCurrentIndex(1);
 	}
 
 	if (!settings->value("SkeletalMeshFixTwistBones").isNull())
@@ -300,7 +308,7 @@ void DzUnrealDialog::saveSettings()
 
 	// SkeletalMesh settings
 	settings->setValue("SkeletalMeshUniqueSkeletonPerCharacter", skeletalMeshUniqueSkeletonPerCharacterCheckBox->isChecked());
-	settings->setValue("SkeletalMeshConvertToEpicSkeleton", skeletalMeshConvertToEpicSkeletonCheckBox->isChecked());
+	settings->setValue("SkeletonTarget", skeletonTargetComboBox->currentIndex());
 	settings->setValue("SkeletalMeshFixTwistBones", skeletalMeshFixTwistBonesCheckBox->isChecked());
 	settings->setValue("SkeletalMeshFaceCharacterRight", skeletalMeshFaceCharacterRightCheckBox->isChecked());
 	settings->setValue("MaterialCombineMethod", combineMaterialMethodComboBox->currentIndex());

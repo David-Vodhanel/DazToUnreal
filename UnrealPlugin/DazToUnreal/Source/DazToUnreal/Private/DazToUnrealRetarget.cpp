@@ -310,6 +310,12 @@ UIKRetargeter* FDazToUnrealRetarget::CreateIKRetargeter(UIKRigDefinition* Source
 		RetargeterController->SetRotationOffsetForRetargetPoseBone(FName("root"), RotationOffset.Quaternion(), ERetargetSourceOrTarget::Target);
 	}
 
+#if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION < 8
+	// UE 5.7: chain and root settings are read/written through the retargeter
+	// controller. These accessors are deprecated in 5.8 (they move onto the
+	// individual Op controllers - see the 5.8+ paths in the Pelvis Motion and
+	// FK Chains op blocks below) and stop compiling in a later release.
+
 	// Setup the Root chain translation mode to Absolute
 	FTargetChainSettings RootChainSettings = RetargeterController->GetRetargetChainSettings(FName("Root"));
 	RootChainSettings.FK.TranslationMode = ERetargetTranslationMode::Absolute;
@@ -319,6 +325,7 @@ UIKRetargeter* FDazToUnrealRetarget::CreateIKRetargeter(UIKRigDefinition* Source
 	FTargetRootSettings RootSettings = RetargeterController->GetRootSettings();
 	RootSettings.BlendToSource = 1.0f;
 	RetargeterController->SetRootSettings(RootSettings);
+#endif
 
 	// Get the pelvis motion op (it's typically added by default)
 	if (FIKRetargetPelvisMotionOp* PelvisOp = RetargeterController->GetFirstRetargetOpOfType<FIKRetargetPelvisMotionOp>())
@@ -328,6 +335,13 @@ UIKRetargeter* FDazToUnrealRetarget::CreateIKRetargeter(UIKRigDefinition* Source
 
 		// Set the target pelvis bone
 		PelvisOp->Settings.TargetPelvisBone = GetPelvisBoneForMesh(TargetMesh);
+
+#if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 8
+		// UE 5.8+: root "blend to source" moved here from the controller's
+		// deprecated SetRootSettings(). Placing the pelvis at the source's exact
+		// translation fixes animation hitches.
+		PelvisOp->Settings.BlendToSourceTranslation = 1.0f;
+#endif
 	}
 
 	// Map the FKChains
@@ -336,6 +350,19 @@ UIKRetargeter* FDazToUnrealRetarget::CreateIKRetargeter(UIKRigDefinition* Source
 		FKChainsOp->GetChainMapping()->ReinitializeWithIKRigs(SourceIKRig, TargetIKRig);
 		FKChainsOp->Settings.IKRigAsset = TargetIKRig;
 		FKChainsOp->GetChainMapping()->AutoMapChains(EAutoMapChainType::Exact, true);
+
+#if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 8
+		// UE 5.8+: the Root chain's Absolute translation mode moved here from the
+		// controller's deprecated SetRetargetChainSettings(). Done after the op is
+		// reinitialized/mapped so ChainsToRetarget is populated.
+		for (FRetargetFKChainSettings& ChainSettings : FKChainsOp->Settings.ChainsToRetarget)
+		{
+			if (ChainSettings.TargetChainName == FName("Root"))
+			{
+				ChainSettings.TranslationMode = EFKChainTranslationMode::Absolute;
+			}
+		}
+#endif
 	}
 
 	// Remove the auto added Retarget IK Goals Op (not sure why it's broken). 

@@ -45,8 +45,7 @@ public:
 	/** This function will be bound to Command (by default it will bring up plugin window) */
 	//void PluginButtonClicked();
 
-	//** Runs the installer to install the Daz Studio plugin*/
-	void InstallDazStudioPlugin();
+	// Installing the Daz Studio plugin now lives in FDazToUnrealUtils::InstallDazStudioPlugin().
 
 	//** Copies the skeleton assets and redirects any references to them*/
 	void InstallSkeletonAssetsToProject();
@@ -104,6 +103,27 @@ private:
 
 	// Conver the skeletal mesh to Epic Skeleton on click
 	void OnConvertToEpicSkeletonClicked(FSoftObjectPath EpicMeshObjectPath, class USkeletalMesh* SkeletalMeshToUpdate);
+
+	// Create the menu for converting to a MetaHuman
+	void AddConvertToMetaHumanMenu();
+
+	// Convert the skeletal mesh to a MetaHuman on click
+	void OnConvertToMetaHumanClicked(FSoftObjectPath SourceObjectPath);
+
+	// Create the blueprint context menu for baking/restoring MetaHuman body culling
+	void AddMetaHumanBodyCullingMenu();
+
+	// Bake the clothing-coverage culling into a cookable body mesh on click
+	void OnBakeMetaHumanBodyCullingClicked(FSoftObjectPath BlueprintObjectPath);
+
+	// Restore the original (unculled) body mesh on click
+	void OnRestoreMetaHumanOriginalBodyClicked(FSoftObjectPath BlueprintObjectPath);
+
+	// Add an Apply Grooms button to the MetaHuman Character editor toolbar
+	void AddMetaHumanCharacterEditorGroomsButton();
+
+	// Apply the character's groom selections to the converted character on click
+	void OnApplyGroomsClicked(FSoftObjectPath CharacterObjectPath);
 
 private:
 	TSharedPtr<FUICommandList> PluginCommands;

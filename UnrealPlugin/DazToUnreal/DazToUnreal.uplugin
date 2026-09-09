@@ -45,8 +45,7 @@
 		},
 		{
 			"Name": "MLDeformerFramework",
-			"Enabled": true,
-			"Optional": true
+			"Enabled": true
 		},
 		{
 			"Name": "NNI",
@@ -55,8 +54,7 @@
 		},
 		{
 			"Name": "NeuralMorphModel",
-			"Enabled": true,
-			"Optional": true
+			"Enabled": true
 		},
 		{
 			"Name": "VertexDeltaModel",
@@ -70,6 +68,26 @@
 		},
 		{
 			"Name": "LiveLinkControlRig",
+			"Enabled": true,
+			"Optional": true
+		},
+		{
+			"Name": "MetaHumanCharacter",
+			"Enabled": true,
+			"Optional": true
+		},
+		{
+			"Name": "Mutable",
+			"Enabled": true,
+			"Optional": true
+		},
+		{
+			"Name": "GeometryScripting",
+			"Enabled": true,
+			"Optional": true
+		},
+		{
+			"Name": "HairStrands",
 			"Enabled": true,
 			"Optional": true
 		}

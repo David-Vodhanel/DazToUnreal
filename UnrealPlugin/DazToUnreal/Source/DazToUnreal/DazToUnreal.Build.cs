@@ -73,6 +73,27 @@ public class DazToUnreal : ModuleRules
 		PrivateDependencyModuleNames.Add("PhysicsUtilities");
 #endif
 
+#if UE_5_8_OR_LATER
+		// Convert to MetaHuman: local body conform (MetaHumanCharacterEditor subsystem)
+		// and Mutable reshape/fit/combine (bake-at-edit-time). New deps for this plugin.
+		PrivateDependencyModuleNames.Add("MetaHumanCharacter");
+		PrivateDependencyModuleNames.Add("MetaHumanCharacterEditor");
+		PrivateDependencyModuleNames.Add("CustomizableObject");
+		PrivateDependencyModuleNames.Add("CustomizableObjectEditor");
+		PrivateDependencyModuleNames.Add("MutableTools");
+		// Component template editing for MetaHuman character blueprint assembly
+		PrivateDependencyModuleNames.Add("SubobjectDataInterface");
+		// FImage pixel access for Daz skin-tone estimation
+		PrivateDependencyModuleNames.Add("ImageCore");
+		// Gap-aware clothing coverage bake (UDynamicMesh + FDynamicMeshAABBTree3 raycasts)
+		PrivateDependencyModuleNames.Add("GeometryCore");
+		PrivateDependencyModuleNames.Add("GeometryFramework");
+		// Groom follicle mask generation (FGroomTextureBuilder) for scalp coverage under hair
+		PrivateDependencyModuleNames.Add("HairStrandsCore");
+		// Groom hair color: UMetaHumanInstance / FMetaHumanPaletteItemPath (instance parameter bags)
+		PrivateDependencyModuleNames.Add("MetaHumanCharacterPalette");
+#endif
+
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[]
 			{

@@ -56,6 +56,8 @@
 #include "Dom/JsonObject.h"
 #include "Serialization/JsonSerializer.h"
 #include "FileHelpers.h"
+#include "Editor.h"
+#include "TimerManager.h"
 #include "Async/Async.h"
 #include "Animation/AnimBlueprint.h"
 #include "Animation/AnimBlueprintGeneratedClass.h"
@@ -64,6 +66,10 @@
 #include "ContentBrowserMenuContexts.h"
 #include "Animation/PoseAsset.h"
 #include "Misc/EngineVersionComparison.h"
+
+#if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 8
+#include "Toolkits/AssetEditorToolkitMenuContext.h"
+#endif
 
 #if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION > 0
 #include "LevelEditorSubsystem.h"
@@ -163,7 +169,7 @@ void FDazToUnrealModule::StartupModule()
 
 	PluginCommands->MapAction(
 		FDazToUnrealCommands::Get().InstallDazStudioPlugin,
-		FExecuteAction::CreateRaw(this, &FDazToUnrealModule::InstallDazStudioPlugin),
+		FExecuteAction::CreateStatic(&FDazToUnrealUtils::InstallDazStudioPlugin),
 		FCanExecuteAction());
 
 	/*PluginCommands->MapAction(
@@ -190,14 +196,14 @@ void FDazToUnrealModule::StartupModule()
 		ToolbarExtender->AddToolBarExtension("Settings", EExtensionHook::After, PluginCommands, FToolBarExtensionDelegate::CreateRaw(this, &FDazToUnrealModule::AddToolbarExtension));
 
 
-		FString InstallerPath = IPluginManager::Get().FindPlugin("DazToUnreal")->GetBaseDir() / TEXT("Resources") / TEXT("DazToUnrealSetup.exe");
-		FString InstallerAbsolutePath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*InstallerPath);
+		// Only show the toolbar (and its "Install Daz Studio Plugin" command) if a
+		// Daz-side plugin DLL is actually bundled for us to install.
+		const FString ResourcesDir = IPluginManager::Get().FindPlugin("DazToUnreal")->GetBaseDir() / TEXT("Resources");
+		const bool bHasDazStudioPlugin =
+			FPaths::FileExists(ResourcesDir / TEXT("dzunrealbridge.dll")) ||
+			FPaths::FileExists(ResourcesDir / TEXT("dsp_daztounreal.dll"));
 
-		FString DazStudioPluginPath = IPluginManager::Get().FindPlugin("DazToUnreal")->GetBaseDir() / TEXT("Resources") / TEXT("dzunrealbridge.dll");
-		FString DazStudioPluginAbsolutePath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*InstallerPath);
-
-		if (FPaths::FileExists(InstallerAbsolutePath)
-			&& FPaths::FileExists(DazStudioPluginAbsolutePath))
+		if (bHasDazStudioPlugin)
 		{
 			LevelEditorModule.GetToolBarExtensibilityManager()->AddExtender(ToolbarExtender);
 		}
@@ -211,6 +217,9 @@ void FDazToUnrealModule::StartupModule()
 #if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION > 3
 		AddConvertToEpicSkeletonMenu();
 #endif
+		AddConvertToMetaHumanMenu();
+		AddMetaHumanBodyCullingMenu();
+		AddMetaHumanCharacterEditorGroomsButton();
 		bContextMenusRegistered = true;
 	}
 
@@ -463,9 +472,14 @@ bool FDazToUnrealModule::Tick(float DeltaTime)
 			int32 BytesRead = 0;
 			if (ServerSocket->RecvFrom(Data, sizeof(Data), BytesRead, *Sender))
 			{
-				char CharData[2048];
-				memcpy(CharData, Data, BytesRead);
-				CharData[BytesRead] = 0;
+				// CharData needs room for the terminator as well: a full 2048-byte
+				// datagram used to write CharData[2048], one past the end of a
+				// 2048-byte buffer. Clamp too, so a negative or oversized BytesRead
+				// can never index outside the array.
+				char CharData[sizeof(Data) + 1];
+				const int32 SafeBytes = FMath::Clamp(BytesRead, 0, static_cast<int32>(sizeof(Data)));
+				memcpy(CharData, Data, SafeBytes);
+				CharData[SafeBytes] = 0;
 
 				FString FileName = ANSI_TO_TCHAR(CharData);
 				if (FPaths::FileExists(FileName))
@@ -636,7 +650,35 @@ UObject* FDazToUnrealModule::ImportFromDaz(TSharedPtr<FJsonObject> JsonObject, c
 	 JsonObject->TryGetBoolField(TEXT("CreateUniqueSkeleton"), ImportData.bCreateUniqueSkeleton);
 	 JsonObject->TryGetBoolField(TEXT("FixTwistBones"), ImportData.bFixTwistBones);
 	 JsonObject->TryGetBoolField(TEXT("ConvertToEpicSkeleton"), ImportData.bConvertToEpicSkeleton);
-	 if (ImportData.bConvertToEpicSkeleton)
+
+	 // Resolve the body-rig target. Prefer the explicit "SkeletonTarget" string
+	 // sent by newer Daz Studio exports; fall back to the legacy bool otherwise.
+	 // The two targets are mutually exclusive (radio semantics).
+	 FString SkeletonTargetString;
+	 if (JsonObject->TryGetStringField(TEXT("SkeletonTarget"), SkeletonTargetString))
+	 {
+		 if (SkeletonTargetString.Equals(TEXT("MetaHuman"), ESearchCase::IgnoreCase))
+		 {
+			 ImportData.SkeletonTarget = EDazSkeletonTarget::MetaHuman;
+		 }
+		 else if (SkeletonTargetString.Equals(TEXT("EpicSkeleton"), ESearchCase::IgnoreCase))
+		 {
+			 ImportData.SkeletonTarget = EDazSkeletonTarget::EpicSkeleton;
+		 }
+		 else
+		 {
+			 ImportData.SkeletonTarget = EDazSkeletonTarget::None;
+		 }
+		 // Keep the legacy bool consistent so existing code paths still behave.
+		 ImportData.bConvertToEpicSkeleton = (ImportData.SkeletonTarget == EDazSkeletonTarget::EpicSkeleton);
+	 }
+	 else if (ImportData.bConvertToEpicSkeleton)
+	 {
+		 ImportData.SkeletonTarget = EDazSkeletonTarget::EpicSkeleton;
+	 }
+
+	 if (ImportData.SkeletonTarget == EDazSkeletonTarget::EpicSkeleton ||
+		 ImportData.SkeletonTarget == EDazSkeletonTarget::MetaHuman)
 	 {
 		 ImportData.bCreateUniqueSkeleton = true;
 		 ImportData.bFixTwistBones = true;
@@ -1722,7 +1764,7 @@ UObject* FDazToUnrealModule::ImportFromDaz(TSharedPtr<FJsonObject> JsonObject, c
 	 Progress.EnterProgressFrame(1, LOCTEXT("CreatingFullBodyIKControlRig", "Creating Full Body IK Control Rig"));
 #if ENGINE_MAJOR_VERSION > 4
 	 // Create a control rig for the character
-	 if (AssetType == DazAssetType::SkeletalMesh && CachedSettings->CreateFullBodyIKControlRig && !ImportData.bConvertToEpicSkeleton && NewObject)
+	 if (AssetType == DazAssetType::SkeletalMesh && CachedSettings->CreateFullBodyIKControlRig && ImportData.SkeletonTarget == EDazSkeletonTarget::None && NewObject)
 	 {
 		 FString SkeletalMeshPackagePath = NewObject->GetOutermost()->GetPathName() + TEXT(".") + NewObject->GetName();
 		 FString CreateControlRigCommand = FString::Format(TEXT("py CreateControlRig.py --skeletalMesh={0} --dtuFile=\"{1}\""), { SkeletalMeshPackagePath, FileName });
@@ -1746,9 +1788,33 @@ UObject* FDazToUnrealModule::ImportFromDaz(TSharedPtr<FJsonObject> JsonObject, c
 
 	 if (USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(NewObject))
 	 {
-		 if (ImportData.bConvertToEpicSkeleton)
+		 switch (ImportData.SkeletonTarget)
 		 {
+		 case EDazSkeletonTarget::EpicSkeleton:
 			 UDazToUnrealBlueprintUtils::ConvertToEpicSkeleton(SkeletalMesh, nullptr);
+			 break;
+		 case EDazSkeletonTarget::MetaHuman:
+#if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 8
+			 {
+				 // Drive the local (offline) body conform via ConvertToMetaHuman.py.
+				 FString SkeletalMeshPackagePath = SkeletalMesh->GetOutermost()->GetPathName() + TEXT(".") + SkeletalMesh->GetName();
+				 FString ConvertToMetaHumanCommand = FString::Format(TEXT("py ConvertToMetaHuman.py --skeletalMesh={0} --dtuFile=\"{1}\""), { SkeletalMeshPackagePath, FileName });
+				 UE_LOG(LogDazToUnreal, Log, TEXT("Converting to MetaHuman with command: %s"), *ConvertToMetaHumanCommand);
+				 // This import runs inside a core-ticker callback, and the MetaHuman conform pumps
+				 // FTSTicker while it blocks.  A re-entrant FTSTicker::Tick crashes, so defer the
+				 // command to the editor timer tick, which runs outside the ticker.
+				 GEditor->GetTimerManager()->SetTimerForNextTick(FTimerDelegate::CreateLambda([ConvertToMetaHumanCommand]()
+					 {
+						 GEngine->Exec(NULL, *ConvertToMetaHumanCommand);
+					 }));
+			 }
+#else
+			 UE_LOG(LogDazToUnreal, Warning, TEXT("Convert to MetaHuman requires Unreal Engine 5.8 or later; importing on the native Daz skeleton."));
+#endif
+			 break;
+		 case EDazSkeletonTarget::None:
+		 default:
+			 break;
 		 }
 	 }
 
@@ -2105,13 +2171,6 @@ UObject* FDazToUnrealModule::ImportFBXAsset(const DazToUnrealImportData& DazImpo
 	 return nullptr;
 }
 
-void FDazToUnrealModule::InstallDazStudioPlugin()
-{
-	 FString InstallerPath = IPluginManager::Get().FindPlugin("DazToUnreal")->GetBaseDir() / TEXT("Resources") / TEXT("DazToUnrealSetup.exe");
-	 FString InstallerAbsolutePath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*InstallerPath);
-	 FPlatformProcess::LaunchFileInDefaultExternalApplication(*InstallerAbsolutePath, NULL, ELaunchVerb::Open);
-}
-
 void FDazToUnrealModule::AddCreateRetargeterMenu()
 {
 #if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 2
@@ -2388,6 +2447,154 @@ void FDazToUnrealModule::OnConvertToEpicSkeletonClicked(FSoftObjectPath EpicMesh
 {
 	USkeletalMesh* TargetEpicSkeletalMesh = Cast<USkeletalMesh>(EpicMeshObjectPath.TryLoad());
 	UDazToUnrealBlueprintUtils::ConvertToEpicSkeleton(SkeletalMeshToUpdate, TargetEpicSkeletalMesh);
+}
+
+void FDazToUnrealModule::AddConvertToMetaHumanMenu()
+{
+#if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 8
+	// Create a new context menu item for Skeletal Meshes
+	UToolMenu* Menu = UToolMenus::Get()->ExtendMenu("ContentBrowser.AssetContextMenu.SkeletalMesh");
+	FToolMenuSection& Section = Menu->FindOrAddSection("GetAssetActions");
+
+	Section.AddDynamicEntry("ConvertToMetaHuman", FNewToolMenuSectionDelegate::CreateLambda(
+		[this](FToolMenuSection& Section)
+		{
+
+			if (UContentBrowserAssetContextMenuContext* Context = Section.FindContext<UContentBrowserAssetContextMenuContext>())
+			{
+				if (Context->SelectedAssets.Num() > 0)
+				{
+					Section.AddMenuEntry(
+						FName(TEXT("ConvertToMetaHumanMenu")),
+						LOCTEXT("ConvertToMetaHumanLabel", "Convert To MetaHuman"),
+						LOCTEXT("ConvertToMetaHumanLabelTip", "Conforms a MetaHuman Character to this skeletal mesh"),
+						FSlateIcon(),
+						FUIAction(FExecuteAction::CreateRaw(this, &FDazToUnrealModule::OnConvertToMetaHumanClicked, Context->SelectedAssets[0].GetSoftObjectPath()))
+					);
+				}
+			}
+		}
+	));
+
+#endif
+}
+
+void FDazToUnrealModule::OnConvertToMetaHumanClicked(FSoftObjectPath SourceObjectPath)
+{
+	FString SkeletalMeshPackagePath = SourceObjectPath.ToString();
+	FString DTUPath = FDazToUnrealUtils::GetDTUPathForModel(SourceObjectPath);
+	FString ConvertToMetaHumanCommand = FString::Format(TEXT("py ConvertToMetaHuman.py --skeletalMesh={0} --dtuFile=\"{1}\""), { SkeletalMeshPackagePath, DTUPath });
+	UE_LOG(LogDazToUnreal, Log, TEXT("Converting to MetaHuman with command: %s"), *ConvertToMetaHumanCommand);
+	GEngine->Exec(NULL, *ConvertToMetaHumanCommand);
+}
+
+void FDazToUnrealModule::AddMetaHumanBodyCullingMenu()
+{
+#if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 8
+	// Bake/Restore actions on the character blueprints produced by the MetaHuman conversion
+	UToolMenu* Menu = UToolMenus::Get()->ExtendMenu("ContentBrowser.AssetContextMenu.Blueprint");
+	FToolMenuSection& Section = Menu->FindOrAddSection("GetAssetActions");
+
+	Section.AddDynamicEntry("MetaHumanBodyCulling", FNewToolMenuSectionDelegate::CreateLambda(
+		[this](FToolMenuSection& Section)
+		{
+			if (UContentBrowserAssetContextMenuContext* Context = Section.FindContext<UContentBrowserAssetContextMenuContext>())
+			{
+				if (Context->SelectedAssets.Num() > 0)
+				{
+					// Cheap visibility gate on the conversion's naming convention (BP_<name>_MH);
+					// the handlers validate the blueprint contents properly.
+					const FString AssetName = Context->SelectedAssets[0].AssetName.ToString();
+					if (AssetName.StartsWith(TEXT("BP_")) && AssetName.EndsWith(TEXT("_MH")))
+					{
+						Section.AddMenuEntry(
+							FName(TEXT("BakeMetaHumanBodyCullingMenu")),
+							LOCTEXT("BakeMetaHumanBodyCullingLabel", "Bake MetaHuman Body Culling"),
+							LOCTEXT("BakeMetaHumanBodyCullingTip", "Bake the clothing-coverage culling into a cookable copy of the body mesh and point the blueprint at it"),
+							FSlateIcon(),
+							FUIAction(FExecuteAction::CreateRaw(this, &FDazToUnrealModule::OnBakeMetaHumanBodyCullingClicked, Context->SelectedAssets[0].GetSoftObjectPath()))
+						);
+						Section.AddMenuEntry(
+							FName(TEXT("RestoreMetaHumanOriginalBodyMenu")),
+							LOCTEXT("RestoreMetaHumanOriginalBodyLabel", "Restore Original MetaHuman Body"),
+							LOCTEXT("RestoreMetaHumanOriginalBodyTip", "Point the blueprint back at the original (unculled) body mesh and reapply the material hide-mask preview"),
+							FSlateIcon(),
+							FUIAction(FExecuteAction::CreateRaw(this, &FDazToUnrealModule::OnRestoreMetaHumanOriginalBodyClicked, Context->SelectedAssets[0].GetSoftObjectPath()))
+						);
+					}
+				}
+			}
+		}
+	));
+#endif
+}
+
+void FDazToUnrealModule::OnBakeMetaHumanBodyCullingClicked(FSoftObjectPath BlueprintObjectPath)
+{
+	if (UObject* Blueprint = BlueprintObjectPath.TryLoad())
+	{
+		UDazToUnrealBlueprintUtils::BakeMetaHumanBodyCulling(Blueprint);
+	}
+}
+
+void FDazToUnrealModule::OnRestoreMetaHumanOriginalBodyClicked(FSoftObjectPath BlueprintObjectPath)
+{
+	if (UObject* Blueprint = BlueprintObjectPath.TryLoad())
+	{
+		UDazToUnrealBlueprintUtils::RestoreMetaHumanOriginalBody(Blueprint);
+	}
+}
+
+void FDazToUnrealModule::AddMetaHumanCharacterEditorGroomsButton()
+{
+#if ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 8
+	// Toolbar of the MetaHuman Character asset editor (AssetEditor.<ToolkitFName>.ToolBar).
+	// Extending by menu name and matching the edited asset's class by name keeps this
+	// free of any MetaHumanCharacter module dependency.
+	UToolMenu* Menu = UToolMenus::Get()->ExtendMenu("AssetEditor.MetaHumanCharacterEditor.ToolBar");
+	FToolMenuSection& Section = Menu->FindOrAddSection("DazToUnreal");
+
+	Section.AddDynamicEntry("DazApplyGrooms", FNewToolMenuSectionDelegate::CreateLambda(
+		[this](FToolMenuSection& Section)
+		{
+			UAssetEditorToolkitMenuContext* Context = Section.FindContext<UAssetEditorToolkitMenuContext>();
+			if (!Context)
+			{
+				return;
+			}
+
+			for (UObject* EditedObject : Context->GetEditingObjects())
+			{
+				// The _MHC suffix limits the button to characters created by the Daz conversion
+				if (EditedObject && EditedObject->GetClass()->GetFName() == FName(TEXT("MetaHumanCharacter"))
+					&& EditedObject->GetName().EndsWith(TEXT("_MHC")))
+				{
+					Section.AddEntry(FToolMenuEntry::InitToolBarButton(
+						FName(TEXT("DazApplyGroomsButton")),
+						FToolUIActionChoice(FUIAction(FExecuteAction::CreateRaw(this, &FDazToUnrealModule::OnApplyGroomsClicked, FSoftObjectPath(EditedObject)))),
+						LOCTEXT("ApplyGroomsLabel", "Apply Grooms"),
+						LOCTEXT("ApplyGroomsTip", "Bind this character's hair and eyebrow groom selections to the Daz-converted meshes and attach them to the character blueprint"),
+						FSlateIcon(FAppStyle::GetAppStyleSetName(), TEXT("Icons.Refresh"))));
+					break;
+				}
+			}
+		}
+	));
+#endif
+}
+
+void FDazToUnrealModule::OnApplyGroomsClicked(FSoftObjectPath CharacterObjectPath)
+{
+	FString CharacterPath = CharacterObjectPath.ToString();
+	FString ApplyGroomsCommand = FString::Format(TEXT("py ApplyGrooms.py --character={0}"), { CharacterPath });
+	UE_LOG(LogDazToUnreal, Log, TEXT("Applying grooms with command: %s"), *ApplyGroomsCommand);
+
+	// Defer out of the toolbar callback; running python inline from UI callbacks can
+	// re-enter the ticker (same hazard as the MetaHuman conversion dispatch)
+	GEditor->GetTimerManager()->SetTimerForNextTick(FTimerDelegate::CreateLambda([ApplyGroomsCommand]()
+	{
+		GEngine->Exec(NULL, *ApplyGroomsCommand);
+	}));
 }
 
 #undef LOCTEXT_NAMESPACE

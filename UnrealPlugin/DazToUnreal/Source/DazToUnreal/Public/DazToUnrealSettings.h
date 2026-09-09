@@ -178,6 +178,26 @@ public:
 	UPROPERTY(config, EditAnywhere, Category = SkeletonSettings, meta = (AllowedClasses = "/Script/Engine.SkeletalMesh"))
 		FSoftObjectPath EpicSkeletonMesh;
 
+	/** Target MetaHuman body skeletal mesh used as the conform target when converting to MetaHuman. */
+	UPROPERTY(config, EditAnywhere, Category = MetaHumanSettings, meta = (AllowedClasses = "/Script/Engine.SkeletalMesh"))
+		FSoftObjectPath MetaHumanBodyMesh;
+
+	/** Target skeleton the converted MetaHuman body is bound to. If not set, derived from MetaHumanBodyMesh. */
+	UPROPERTY(config, EditAnywhere, Category = MetaHumanSettings, meta = (AllowedClasses = "/Script/Engine.Skeleton"))
+		FSoftObjectPath MetaHumanTargetSkeleton;
+
+	/** Actor blueprint template duplicated when assembling the converted MetaHuman character (needs components named Face and Body, like the MetaHuman pipeline templates). */
+	UPROPERTY(config, EditAnywhere, Category = MetaHumanSettings, meta = (AllowedClasses = "/Script/Engine.Blueprint"))
+		FSoftObjectPath MetaHumanActorTemplate = FSoftObjectPath(TEXT("/MetaHumanCharacter/BuildPipeline/BP_MetaHuman_Legacy.BP_MetaHuman_Legacy"));
+
+	/** Opt-in: use Epic cloud auto-rigging for the face custom DNA. Requires an Epic account sign-in. The core body conversion never requires this. */
+	UPROPERTY(config, EditAnywhere, Category = MetaHumanSettings)
+		bool MetaHumanEnableCloudAutoRig = false;
+
+	/** Opt-in: use Epic cloud texture synthesis for hi-res skin textures. Requires an Epic account sign-in. The core body conversion never requires this. */
+	UPROPERTY(config, EditAnywhere, Category = MetaHumanSettings)
+		bool MetaHumanEnableCloudTextureSynth = false;
+
 	/** Material Packs to use.  Order matters, first matching material will be used.*/
 	UPROPERTY(config, EditAnywhere, Category = MaterialSettings, meta = (AllowedClasses = "/Script/DazToUnreal.DazToUnrealMaterialPack"))
 		TArray<FSoftObjectPath> MaterialPacks;

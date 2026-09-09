@@ -45,8 +45,14 @@ public:
 		return skeletalMeshUniqueSkeletonPerCharacterCheckBox ? skeletalMeshUniqueSkeletonPerCharacterCheckBox->isChecked() : false;
 	}
 
-	bool getConvertToEpicSkeleton() {
-		return skeletalMeshConvertToEpicSkeletonCheckBox ? skeletalMeshConvertToEpicSkeletonCheckBox->isChecked() : false;
+	QString getSkeletonTarget() {
+		// Return the exact tokens the Unreal plugin parses from the .dtu, not the display text
+		switch (skeletonTargetComboBox ? skeletonTargetComboBox->currentIndex() : 0)
+		{
+		case 1: return QString("EpicSkeleton");
+		case 2: return QString("MetaHuman");
+		default: return QString("None");
+		}
 	}
 
 	bool getFixTwistBones() {
@@ -89,7 +95,7 @@ protected:
 	// SkeletalMesh settings
 	QGroupBox* skeletalMeshSettingsGroupBox = nullptr;
 	QCheckBox* skeletalMeshUniqueSkeletonPerCharacterCheckBox = nullptr;
-	QCheckBox* skeletalMeshConvertToEpicSkeletonCheckBox = nullptr;
+	QComboBox* skeletonTargetComboBox = nullptr;
 
 	// Common settings
 	QGroupBox* commonSettingsGroupBox = nullptr;

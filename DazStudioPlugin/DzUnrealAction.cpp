@@ -209,7 +209,10 @@ void DzUnrealAction::writeConfiguration()
 	 if (m_sAssetType == "SkeletalMesh")
 	 {
 		 writer.addMember("CreateUniqueSkeleton", DazToUnrealDialog->getUniqueSkeletonPerCharacter());
-		 writer.addMember("ConvertToEpicSkeleton", DazToUnrealDialog->getConvertToEpicSkeleton());
+		 QString sSkeletonTarget = DazToUnrealDialog->getSkeletonTarget();
+		 writer.addMember("SkeletonTarget", sSkeletonTarget);
+		 // Legacy key so older Unreal plugin versions still work with this exporter
+		 writer.addMember("ConvertToEpicSkeleton", sSkeletonTarget == "EpicSkeleton");
 		 writer.addMember("FixTwistBones", DazToUnrealDialog->getFixTwistBones());
 		 writer.addMember("FaceCharacterRight", DazToUnrealDialog->getFaceCharacterRight());
 		 writer.addMember("MaterialCombineMethod", DazToUnrealDialog->getMaterialCombineMethod());
@@ -234,6 +237,7 @@ void DzUnrealAction::writeConfiguration()
 			 }
 		 }
 		 writeAllMaterials(m_pSelectedNode, writer, pCSVStream);
+		 writeAllWearables(m_pSelectedNode, writer);
 		 writeAllMorphs(writer);
 
 		 // DB, 2022-July-5: Daz To Unified Bridge Format support

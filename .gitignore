@@ -1,4 +1,5 @@
 .vs
+Daz6.props
 out
 CMakeSettings.json
 .DS_Store
@@ -10,5 +11,28 @@ x64/
 *.vcxproj
 *.vcxproj.filters
 *.vcxproj.user
+
+# Qt moc/uic/rcc output - regenerated at build time
 moc_*.cpp
-__pycache__
+moc_*.h
+moc_predefs.h
+qrc_*.cpp
+ui_*.h
+*.moc
+
+# Python bytecode cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Diagnostic/dev-only scripts: kept in Perforce for reference, not shipped to git
+UnrealPlugin/DazToUnreal/Content/Python/Diagnostics/
+
+# Scratch space for debug captures, dumps, and throwaway files
+Scratch/
+
+# Local MCP server config (machine-specific paths)
+.mcp.json
+
+# Internal design/handoff docs: kept in Perforce, not shipped to git
+/docs/
