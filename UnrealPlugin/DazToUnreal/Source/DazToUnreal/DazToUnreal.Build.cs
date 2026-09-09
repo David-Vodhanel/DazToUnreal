@@ -50,6 +50,14 @@ public class DazToUnreal : ModuleRules
 		PrivateDependencyModuleNames.Add("DeveloperSettings");
 #endif
 
+#if UE_5_0_OR_LATER
+		// UDynamicMesh appears in UFUNCTION signatures in DazToUnrealBlueprintUtils.h on every
+		// engine version (the bodies are 5.8+ only), so UHT emits a GEOMETRYFRAMEWORK_API cross
+		// module reference regardless - the dependency has to be declared for all UE5 builds.
+		PrivateDependencyModuleNames.Add("GeometryCore");
+		PrivateDependencyModuleNames.Add("GeometryFramework");
+#endif
+
 #if UE_5_1_OR_LATER
 		PrivateDependencyModuleNames.Add("AlembicLibrary");
 		PrivateDependencyModuleNames.Add("AlembicImporter");
@@ -85,9 +93,6 @@ public class DazToUnreal : ModuleRules
 		PrivateDependencyModuleNames.Add("SubobjectDataInterface");
 		// FImage pixel access for Daz skin-tone estimation
 		PrivateDependencyModuleNames.Add("ImageCore");
-		// Gap-aware clothing coverage bake (UDynamicMesh + FDynamicMeshAABBTree3 raycasts)
-		PrivateDependencyModuleNames.Add("GeometryCore");
-		PrivateDependencyModuleNames.Add("GeometryFramework");
 		// Groom follicle mask generation (FGroomTextureBuilder) for scalp coverage under hair
 		PrivateDependencyModuleNames.Add("HairStrandsCore");
 		// Groom hair color: UMetaHumanInstance / FMetaHumanPaletteItemPath (instance parameter bags)
