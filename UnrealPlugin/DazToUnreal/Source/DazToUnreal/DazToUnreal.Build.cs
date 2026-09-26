@@ -2,6 +2,7 @@
 
 using UnrealBuildTool;
 using System.IO;
+using System.Collections.Generic;
 
 public class DazToUnreal : ModuleRules
 {
@@ -130,22 +131,36 @@ public class DazToUnreal : ModuleRules
 		}
 
 #if UE_5_4_OR_LATER
-		// MLDeformerFramework can't be optional in 5.4 or the plugin will fail to load.
+		// Plugins whose modules we statically link can't be optional, or the plugin will fail to load.
+		// The engine only enables an optional plugin reference if the target receipt already built it,
+		// so e.g. MetaHumanCharacter (EnabledByDefault false) is silently skipped in the launcher engine
+		// and UnrealEditor-DazToUnreal.dll fails with missing imports.
+		List<string> RequiredPlugins = new List<string> { "MLDeformerFramework", "NeuralMorphModel" };
+#if UE_5_8_OR_LATER
+		RequiredPlugins.AddRange(new string[] { "MetaHumanCharacter", "Mutable", "HairStrands" });
+#endif
 		string PluginFilePath = Path.Combine(PluginDirectory, "DazToUnreal.uplugin");
 		PluginDescriptor Descriptor = PluginDescriptor.FromFile(EpicGames.Core.FileReference.FromString(PluginFilePath));
+		bool bDescriptorChanged = false;
 		foreach(var RequestedPlugin in Descriptor.Plugins)
 		{
-			if((RequestedPlugin.Name == "MLDeformerFramework" || 
-				RequestedPlugin.Name == "NeuralMorphModel") && 
-				RequestedPlugin.bOptional == true)
+			if(RequiredPlugins.Contains(RequestedPlugin.Name) && RequestedPlugin.bOptional == true)
 			{
 				RequestedPlugin.bOptional = false;
-				try
-				{
-					Descriptor.Save2(PluginFilePath);
-					break;
-				}
-				catch { }
+				bDescriptorChanged = true;
+			}
+		}
+		if (bDescriptorChanged)
+		{
+			try
+			{
+				// Perforce / robocopied checkouts leave the uplugin read-only, which silently skipped this save before
+				File.SetAttributes(PluginFilePath, File.GetAttributes(PluginFilePath) & ~FileAttributes.ReadOnly);
+				Descriptor.Save2(PluginFilePath);
+			}
+			catch (System.Exception Ex)
+			{
+				System.Console.WriteLine("DazToUnreal: warning: could not mark statically linked plugins as required in " + PluginFilePath + " (" + Ex.Message + "). The packaged plugin may fail to load.");
 			}
 		}
 #endif
